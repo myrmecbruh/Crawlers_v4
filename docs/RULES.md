@@ -18,7 +18,7 @@
 - [gospel] Roll a pool of d6: trait + skill dice. Each 5 or 6 is a success.
 - [slop] A task's difficulty is the number of successes it needs, 1 to 3.
 - [slop] Dice are drawn on screen at the place the roll happens.
-- [slop] Tools, materials, wounds, needs and bonds add or remove whole dice. Nothing ever changes the 5+ target.
+- [slop] Tools, materials, wounds, needs and bonds add or remove whole dice. Only a scar changes the 5+ target.
 
 ## Fail forward
 - [gospel] A failed roll never stalls the task: it still makes progress, with a complication (lost token, injury, time, noise).
@@ -34,6 +34,7 @@
 - [gospel] Hunger is met by eating food tokens; Rest by sleeping in a bed.
 - [gospel] Stress is raised by death, filth and blight and lowered by comfort; a break causes a bad event.
 - [gospel] Relationships are bonds and grudges between colonists that add or remove dice when they work together.
+- [gospel] Bonds form from shared rolls (working or fighting side by side: a shared success adds a bond pip, a shared failure a grudge pip; one value per pair, -3 to +3) and from personality keywords (each colonist has 2, such as pious, greedy, gentle), which tilt the outcome of shared rolls.
 - [slop] Temperature comes from season, weather card, depth, nearby fire tokens and worn gear.
 
 ## Wounds and death
@@ -41,6 +42,7 @@
 - [gospel] A defeated character is downed first, can be carried home to recover with a lasting scar, and dies only if abandoned.
 - [slop] Each area takes up to 2 wounds. A wounded area removes a die from actions that use it. A third wound anywhere downs the character.
 - [slop] Armour on the hit area rolls its material's hardness in dice; each success cancels a wound.
+- [gospel] A scar is a visible mark on the sprite. Roll a d6 to pick a trait: rolls with that trait succeed only on 6.
 - [slop] A corpse and its gear stay in the world as tokens.
 
 ## Equipment
@@ -62,3 +64,7 @@
 - [slop] An exchange is one attack roll against the target's defence successes; the margin is wounds dealt.
 - [gospel] The player has a recall bell: one button, the party drops its goal and heads home. Nothing finer than that.
 - [slop] A party also turns back by its own judgement.
+
+## Creatures
+- [gospel] Creatures use the same rules as colonists: the six traits, skills, worn slots where the body has them, and a material tag (flesh, chitin, rusted metal). Differences come from keyword tags.
+- [gospel] Raiders are creatures under the same rules.

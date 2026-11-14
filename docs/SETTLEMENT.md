@@ -5,6 +5,12 @@
 - [slop] A tile holds a stack of up to 6 tokens, all drawn.
 - [slop] Colonists move tokens by carrying them, one per hand plus pack.
 
+## Food
+- [gospel] Foraging and hunting: Plant and Flesh tokens gathered from the plot and beyond.
+- [gospel] Farming: voxel fields; crops are tokens that grow in place over days, by season.
+- [gospel] Cooking: a station turns raw tokens into meals that feed more or lift Stress; raw food is risky.
+- [gospel] Spoilage: food tokens rot after some days unless stored cold, salted or smoked.
+
 ## Stations
 - [gospel] Each built station takes visible input tokens and a colonist's roll, and outputs tokens (ore to bar to tool). Chains are the engine.
 - [slop] Inputs sit on the station's in-tile, outputs appear on its out-tile.

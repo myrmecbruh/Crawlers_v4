@@ -22,6 +22,15 @@
   - Dungeon below: shafts and stairs lead down into generated levels.
 - [slop] A starting plot has one of each within reach.
 
+## Blight
+- [gospel] Each tick in the fog risks Stress and a disease.
+- [gospel] Tiles are reclaimed by placing lit braziers or wards: tokens that burn down.
+- [gospel] The fog creeps back into the settlement unless held off: a standing upkeep pressure.
+- [gospel] Tokens left in the fog gain a "blighted" keyword, with risks and uses.
+
+## Calendar
+- [gospel] Four seasons of 6 days: a 24-day year, about 4 minutes a day at normal speed. Winter is the temperature and food test.
+
 ## Expeditions
 - [gospel] Expeditions are seamless: the dungeon is part of the one world and the colony keeps working on the same ticks.
 - [gospel] Areas in the fog are forgotten once the characters withdraw to the settlement.

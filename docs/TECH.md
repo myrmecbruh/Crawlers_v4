@@ -7,7 +7,7 @@
 ## Time
 - [gospel] The simulation steps in slow, visible ticks, with pause and speed controls.
 - [gospel] Progress happens only while the game is open. No offline catch-up.
-- [slop] 1 tick per second at normal speed. A day is 240 ticks.
+- [slop] 1 tick per second at normal speed. A day is 240 ticks (the gospel 4 minutes).
 
 ## System impact
 - [gospel] Very low system impact.
@@ -23,6 +23,10 @@
 ## Screen
 - [gospel] Both orientations. The screen is divided in half into roughly two squares: a visual side (the world) and an interface side.
 - [slop] Portrait: world on top, interface below. Landscape: world left, interface right.
+
+## Sound
+- [gospel] Full sound, plus mood music and stingers.
+- [slop] Sound is generated or uses very short samples, to stay inside the download budget; music is sparse and can be switched off.
 
 ## Saves
 - [gospel] Autosave to browser storage.
