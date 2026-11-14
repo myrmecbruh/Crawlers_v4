@@ -2,7 +2,7 @@
 
 A very low-system-impact, semi-idle dungeon crawler / colony survival / life sim for mobile and desktop, written from the ground up.
 
-Design phase: no code yet. Start with `docs/`.
+Slice-1 prototype: open `index.html` in a browser (no build step, no dependencies). Design lives in `docs/`.
 
 | Doc | Covers |
 |---|---|
