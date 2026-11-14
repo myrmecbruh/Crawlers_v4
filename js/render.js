@@ -1,23 +1,29 @@
 'use strict';
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
-const cam={x:0,y:(24+24)*8-40,s:2};
-const SPR=[];
+const cam={x:0,y:(24+24)*8-40,s:2,yaw:0,tilt:0};
+const HH=()=>cam.tilt?14:8; // half height of a ground diamond: 8 is the 2:1 view, 14 the raised one [slop]
+function toV(x,y){switch(cam.yaw){case 1:return[H-1-y,x];case 2:return[W-1-x,H-1-y];case 3:return[y,W-1-x];}return[x,y];}
+function toW(vx,vy){switch(cam.yaw){case 1:return[vy,H-1-vx];case 2:return[W-1-vx,H-1-vy];case 3:return[W-1-vy,vx];}return[vx,vy];}
+function setView(yaw,tilt){const hh=HH(),w=toW((cam.x/16+cam.y/hh)/2,(cam.y/hh-cam.x/16)/2);
+ cam.yaw=(yaw+4)%4;cam.tilt=tilt;const v=toV(w[0],w[1]);cam.x=(v[0]-v[1])*16;cam.y=(v[0]+v[1])*HH();redraw();}
+function lookAt(x,y){const v=toV(x,y);cam.x=(v[0]-v[1])*16;cam.y=(v[0]+v[1])*HH()-G.hgt[I(x,y)]*16;redraw();}
+const SPR={8:[],14:[]};
 function shade(hex,f){const n=parseInt(hex.slice(1),16),c=v=>Math.max(0,Math.min(255,Math.round(v*f)));
  return'rgb('+c(n>>16)+','+c(n>>8&255)+','+c(n&255)+')';}
-function mkBlock(m){const c=document.createElement('canvas');c.width=32;c.height=32;const g=c.getContext('2d'),col=M[m].c;
- for(let py=0;py<32;py++)for(let px=0;px<32;px++){
-  let f=0;const mx=px<16?px:31-px,y0=8+(mx>>1);
-  if(Math.abs(px-15.5)/16+Math.abs(py-7.5)/8<=1)f=1.12;else if(py>=y0&&py<y0+16)f=px<16?.8:.58;
+function mkBlock(m,hh){const c=document.createElement('canvas');c.width=32;c.height=hh*2+16;const g=c.getContext('2d'),col=M[m].c;
+ for(let py=0;py<hh*2+16;py++)for(let px=0;px<32;px++){
+  let f=0;const mx=px<16?px:31-px,y0=hh+Math.floor(mx*hh/16);
+  if(Math.abs(px-15.5)/16+Math.abs(py-(hh-.5))/hh<=1)f=1.12;else if(py>=y0&&py<y0+16)f=px<16?.8:.58;
   if(!f)continue;if(m!==18&&hash2(px,py,m)<.14)f*=.88;
   g.fillStyle=shade(col,f);g.fillRect(px,py,1,1);}
  return c;}
-for(let m=1;m<M.length;m++)SPR[m]=mkBlock(m);
+for(const hh of[8,14])for(let m=1;m<M.length;m++)SPR[hh][m]=mkBlock(m,hh);
 let dirty=true;
 function redraw(){if(dirty)return;dirty=true;requestAnimationFrame(draw);}
 function fit(){const r=cv.parentElement.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);
  cv.width=Math.max(1,Math.floor(r.width*d));cv.height=Math.max(1,Math.floor(r.height*d));cv._d=d;dirty=false;redraw();}
 const rc=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
-function diamond(sx,ty,c,fill){ctx.beginPath();ctx.moveTo(sx,ty+1);ctx.lineTo(sx+15,ty+8);ctx.lineTo(sx,ty+15);ctx.lineTo(sx-15,ty+8);ctx.closePath();
+function diamond(sx,ty,c,fill){const hh=HH();ctx.beginPath();ctx.moveTo(sx,ty+1);ctx.lineTo(sx+15,ty+hh);ctx.lineTo(sx,ty+hh*2-1);ctx.lineTo(sx-15,ty+hh);ctx.closePath();
  if(fill){ctx.fillStyle=c;ctx.fill();}else{ctx.strokeStyle=c;ctx.lineWidth=1;ctx.stroke();}}
 const PIP=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 function dieSpr(x,y,v,hit){rc(x,y,7,7,hit?'#f0c040':'#d8d4c8');for(const p of PIP[v])rc(x+1+(p%3)*2,y+1+Math.floor(p/3)*2,1,1,'#1a1a1a');}
@@ -82,13 +88,15 @@ function draw(){
  const put=(m,o)=>{const i=I(o.x,o.y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
  for(const f of G.feats)if(f.left>0||f.k==='hearth'||f.k==='bench')put(fm,f);
  for(const c of G.cols)if(c.by==null)put(cm,c);for(const e of G.crit)put(em,e);for(const q of G.sites)put(sm,q);for(const f of G.fx)put(xm,f);
- for(let dg=0;dg<W+H-1;dg++)for(let x=Math.max(0,dg-H+1);x<=Math.min(W-1,dg);x++){
-  const y=dg-x,sx=(x-y)*16,sy=(x+y)*8;if(sx<vx0||sx>vx1||sy<vy0||sy>vy1)continue;
-  const i=I(x,y),h=G.hgt[i],fog=x>=PW&&!G.rev[i];
-  const z0=Math.max(0,Math.min(h-1,x+1<W?G.hgt[i+1]:0,y+1<H?G.hgt[i+W]:0));
-  for(let z=z0;z<h;z++)ctx.drawImage(SPR[fog?18:G.vox[VI(x,y,z)]],sx-16,sy-(z+1)*16);
+ const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,S=SPR[hh];
+ for(let dg=0;dg<VW+VH-1;dg++)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
+  const vy=dg-vx,sx=(vx-vy)*16,sy=dg*hh;if(sx<vx0||sx>vx1||sy<vy0||sy>vy1)continue;
+  const wp_=toW(vx,vy),x=wp_[0],y=wp_[1],i=I(x,y),h=G.hgt[i],fog=x>=PW&&!G.rev[i];
+  let hE=0,hS=0;if(vx+1<VW){const n=toW(vx+1,vy);hE=G.hgt[I(n[0],n[1])];}if(vy+1<VH){const n=toW(vx,vy+1);hS=G.hgt[I(n[0],n[1])];}
+  const z0=Math.max(0,Math.min(h-1,hE,hS));
+  for(let z=z0;z<h;z++)ctx.drawImage(S[fog?18:G.vox[VI(x,y,z)]],sx-16,sy-(z+1)*16);
   if(fog)continue;
-  const ty=sy-h*16,ay=ty+8,k=K(x,y);
+  const ty=sy-h*16,ay=ty+hh,k=K(x,y);
   if(G.stock[k])diamond(sx,ty,'rgba(240,192,64,.5)');
   if(G.digs[k])diamond(sx,ty,'rgba(220,60,60,.45)',1);
   if(x===47&&y===24&&!G.gateOpen){rc(sx-8,ay-22,16,24,'#3a2c20');rc(sx-8,ay-12,16,2,'#aab3bd');}
@@ -104,8 +112,9 @@ function draw(){
 }
 function pick(px,py){
  const d=cv._d||1,s=cam.s*d,wx=(px*d-cv.width/2)/s+cam.x,wy=(py*d-cv.height/2)/s+cam.y;
- for(let dg=W+H-2;dg>=0;dg--)for(let x=Math.max(0,dg-H+1);x<=Math.min(W-1,dg);x++){
-  const y=dg-x,sx=(x-y)*16,cy=(x+y)*8-G.hgt[I(x,y)]*16+8;
-  if(Math.abs(wx-sx)/16+Math.abs(wy-cy)/8<=1)return{x,y};}
+ const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H;
+ for(let dg=VW+VH-2;dg>=0;dg--)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
+  const w=toW(vx,dg-vx),sx=(vx-(dg-vx))*16,cy=dg*hh-G.hgt[I(w[0],w[1])]*16+hh;
+  if(Math.abs(wx-sx)/16+Math.abs(wy-cy)/hh<=1)return{x:w[0],y:w[1]};}
  return null;
 }

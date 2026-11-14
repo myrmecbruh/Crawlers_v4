@@ -57,6 +57,7 @@ function tabCards(){const f=d=>'<span class="chip k-'+CARD[d.k].kind+'">'+CARD[d
 function tabLog(){return'<div class="box log">'+G.log.slice().reverse().map(l=>'<div'+(/FAIL|DOWN|dies|wounded/.test(l)?' class="k-bane"':'')+'>'+esc(l)+'</div>').join('')+'</div>';}
 function render(){
  $('date').textContent=SEASON[season()]+' '+(day()%6+1)+', year '+(Math.floor(day()/24)+1)+' · '+(night()?'night':tod()<60?'morning':tod()<120?'midday':'evening');
+ $('tilt').classList.toggle('on',!!cam.tilt);
  document.querySelectorAll('#spd button').forEach(b=>b.classList.toggle('on',+b.dataset.v===G.speed));
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===tab));
  const st=panel.scrollTop;
@@ -83,6 +84,7 @@ document.addEventListener('click',e=>{
  if(a==='tab')tab=v;else if(a==='tool'){tool=v;info=null;}else if(a==='sel')G.sel=G.sel===+v?null:+v;
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
+ else if(a==='turn')setView(cam.yaw+ +v,cam.tilt);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
  else if(a==='psel')psel[v]=!psel[v];
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids);psel={};}}
  else if(a==='recall')recall();
@@ -99,6 +101,7 @@ cv.addEventListener('pointerup',e=>{if(drag&&!drag.mv){const r=cv.getBoundingCli
 cv.addEventListener('pointercancel',()=>{drag=null;});
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.s=Math.max(1,Math.min(4,cam.s+(e.deltaY<0?1:-1)));redraw();},{passive:false});
 window.addEventListener('resize',fit);
+document.addEventListener('keydown',e=>{if(e.code==='KeyQ')setView(cam.yaw-1,cam.tilt);else if(e.code==='KeyE')setView(cam.yaw+1,cam.tilt);else if(e.code==='KeyR')setView(cam.yaw,cam.tilt?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();clearInterval(timer);timer=null;}else if(G.speed>0&&!timer)setSpeed(G.speed);});
 if(!load())newGame((Math.random()*1e9)|0);
 fit();setSpeed(G.speed||1);
