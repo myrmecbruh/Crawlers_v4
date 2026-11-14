@@ -64,9 +64,11 @@ function render(){
  $('tilt').classList.toggle('on',!!cam.tilt);
  document.querySelectorAll('#spd button').forEach(b=>b.classList.toggle('on',+b.dataset.v===G.speed));
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===tab));
- const st=panel.scrollTop;
- panel.innerHTML={colony:tabColony,orders:tabOrders,party:tabParty,cards:tabCards,log:tabLog}[tab]();
- panel.scrollTop=st;
+ // Never rebuild the panel under a finger or mouse button: a button replaced between press and release gets no click.
+ if(held_){pend=true;return;}
+ const h={colony:tabColony,orders:tabOrders,party:tabParty,cards:tabCards,log:tabLog}[tab]();
+ if(h===lastH)return;lastH=h;
+ const st=panel.scrollTop;panel.innerHTML=h;panel.scrollTop=st;
 }
 function tap(p){
  const k=K(p.x,p.y),inner=p.x>0&&p.x<PW-1&&p.y>0&&p.y<H-1;
@@ -98,6 +100,10 @@ document.addEventListener('click',e=>{
  else if(a==='keep')askNew=false;
  render();redraw();
 });
+let held_=false,pend=false,lastH='';
+$('ui').addEventListener('pointerdown',()=>{held_=true;});
+const rel=()=>{if(!held_)return;held_=false;setTimeout(()=>{if(pend){pend=false;render();}},0);};
+window.addEventListener('pointerup',rel);window.addEventListener('pointercancel',rel);
 let drag=null;
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,mv:false};});
 cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.mv&&Math.abs(dx)+Math.abs(dy)<8)return;drag.mv=true;cam.x=drag.cx-dx/cam.s;cam.y=drag.cy-dy/cam.s;redraw();});

@@ -65,23 +65,26 @@ function charSpr(c,ax,ay,mv){
  const m=w[5],tc=mc(w[1])||rag,lc=mc(w[2])||rag,fc=mc(w[3])||skin,hc=mc(w[4])||skin;
  const legs=()=>{leg(ax-2,b-10,fl[0],fl[1],shade(lc,.85),fc);leg(ax+2,b-10,fr[0],fr[1],lc,fc);};
  const cap=()=>{if(w[0])r(-4,b-31,8,3,mc(w[0]));};
+ // arms swing against the leg on the same side
+ const swL=mv?Math.round(-(fl[0]-(ax-2))*.5):0,swR=mv?Math.round(-(fr[0]-(ax+2))*.5):0,sw=x=>X(x,2)<ax?swL:swR;
+ const arm=(x,col)=>{const s=sw(x),x0=X(x,2);for(let i=0;i<8;i++)rc(x0+Math.round(s*i/7),b-21+i,2,1,col);rc(x0+s,b-13,2,2,hc);};
  if(!F.back){ // facing the viewer; +x is the side the character faces
   if(m&&m.it==='cloak')r(-7,b-23,11,17,shade(M[m.m].c,.7));
   if(m&&m.it==='pack'){r(-9,b-22,5,10,M[m.m].c);r(-9,b-22,5,1,shade(M[m.m].c,1.3));}
-  held(c.hands[1],X(-7,1),b);r(-6,b-21,2,8,shade(tc,.7));r(-6,b-13,2,2,hc);
+  held(c.hands[1],X(-7,1)+sw(-6),b);arm(-6,shade(tc,.7));
   legs();
   r(-4,b-22,8,12,tc);r(-4,b-22,2,12,shade(tc,.85));
   r(-3,b-29,6,7,skin);r(-3,b-30,6,2,hair);r(-3,b-29,1,5,hair);r(0,b-26,1,1,'#221');r(2,b-26,1,1,'#221');cap();
   if(c.scars.length)r(1,b-28,1,4,'#802020');
-  r(3,b-21,2,8,shade(tc,.9));r(3,b-13,2,2,hc);held(c.hands[0],X(5,1),b);
+  arm(3,shade(tc,.9));held(c.hands[0],X(5,1)+sw(3),b);
  }else{ // seen from behind
-  held(c.hands[0],X(5,1),b);r(3,b-21,2,8,shade(tc,.7));r(3,b-13,2,2,hc);
+  held(c.hands[0],X(5,1)+sw(3),b);arm(3,shade(tc,.7));
   legs();
   r(-4,b-22,8,12,shade(tc,.9));
   r(-3,b-29,6,7,skin);r(-3,b-30,5,7,hair);r(-3,b-30,6,3,hair);cap();
   if(m&&m.it==='cloak')r(-5,b-23,10,17,shade(M[m.m].c,.8));
   if(m&&m.it==='pack'){r(-4,b-22,7,10,M[m.m].c);r(-4,b-22,7,1,shade(M[m.m].c,1.3));r(-1,b-18,1,4,shade(M[m.m].c,.6));}
-  r(-6,b-21,2,8,shade(tc,.8));r(-6,b-13,2,2,hc);held(c.hands[1],X(-7,1),b);
+  arm(-6,shade(tc,.8));held(c.hands[1],X(-7,1)+sw(-6),b);
  }
  const wp=[[0,-27],[0,-17],[-3,-7],[-3,-1],[-6,-13],[-5,-21]];
  for(let i=0;i<6;i++)if(c.wd[i])r(wp[i][0],b+wp[i][1],2,2,'#d02020');
