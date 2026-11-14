@@ -43,4 +43,5 @@
 
 ## Scale
 - [gospel] 3 to 6 colonists.
+- [gospel] New colonists arrive by cards (wanderer, captive, survivor) and by rescue: found downed or caged in the dungeon and carried home like any token.
 - [gospel] Traits run 1 to 3. Skills run 0 to 3. Dice pools are 1 to 6 dice.

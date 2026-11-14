@@ -18,5 +18,7 @@
 - [gospel?] Cards are probably the main prize of expeditions.
 - [gospel?] They go into a deck that is drawn from daily, for engine building in the manner of Dominion.
 - [gospel?] Cards may control boons and banes such as weather, disease, crops and raids.
+- [gospel] How the daily draw works is undecided; it is on the roadmap.
+- [gospel] Deck shaping: cards have a small use count shown as pips (banes expire, boons wear out), and a shrine station destroys a card for a token cost and a roll.
 - [slop] One deck. The day's draw is laid face up on the interface side and applies until the next dawn.
 - [slop] The starting deck is mostly banes and blanks; expedition cards dilute it with boons.

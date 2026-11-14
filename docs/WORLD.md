@@ -6,6 +6,9 @@
 - [slop] A character is 1 voxel wide and 2 tall.
 - [slop] A chunk is 48 x 48 voxels and 16 high.
 
+## Shaping terrain
+- [gospel] Voxel by voxel: the player can designate any voxel to dig or place; each is a token of its material.
+
 ## Map
 - [gospel] The settlement area is procedurally generated.
 - [gospel] Start with a small fixed plot of about 48 x 48. Each breached border generates one more chunk.

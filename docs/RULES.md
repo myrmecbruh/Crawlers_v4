@@ -9,6 +9,7 @@
 ## Skills
 - [gospel] Skills run 0 to 3.
 - [gospel] Skills are per material or tool: the skill follows what you work with (stone, wood, metal, blade); the trait follows the action.
+- [gospel] Work rolls use the skill of the material being worked (mining is Might + Stone). Combat rolls use the weapon's tool skill (Might + Blade).
 - [slop] Material skills: Stone, Wood, Metal, Fiber, Flesh (hide, bone, meat, bodies), Plant (crops, herbs, soil), Relic (old machinery).
 - [slop] Tool skills: Blade, Haft (clubs, hammers, picks, axes), Bow, Shield.
 - [slop] A task names one action (which gives the trait) and one material or tool (which gives the skill). Example: mining granite is Might + Stone; carving a stone idol is Agility + Stone; setting a broken leg is Intellect + Flesh; swinging a sword is Might + Blade.
@@ -28,7 +29,7 @@
 ## Needs
 - [gospel] Six needs, each a small 0 to 6 track: Hunger, Rest, Temperature, Wounds, Stress (morale), Relationships.
 - [gospel] Each need is resisted by exactly one trait.
-- [slop] Hunger: Might. Temperature: Agility. Wounds: Endurance. Rest: Willpower. Stress: Intellect. Relationships: Presence.
+- [gospel] Hunger: Might. Temperature: Agility. Wounds: Endurance. Rest: Intellect. Stress: Willpower. Relationships: Presence.
 - [slop] When a need track is at its worst, the colonist rolls the resisting trait each day; failure removes a die from all pools until the need is met.
 - [gospel] Hunger is met by eating food tokens; Rest by sleeping in a bed.
 - [gospel] Stress is raised by death, filth and blight and lowered by comfort; a break causes a bad event.
@@ -59,4 +60,5 @@
 ## Combat
 - [gospel] Combat is automatic, on the same slow ticks as everything else. The party fights by itself; dice pools are rolled visibly each exchange.
 - [slop] An exchange is one attack roll against the target's defence successes; the margin is wounds dealt.
-- [slop] A party retreats by its own judgement of its goal. Whether the player can force a retreat is an open question.
+- [gospel] The player has a recall bell: one button, the party drops its goal and heads home. Nothing finer than that.
+- [slop] A party also turns back by its own judgement.
