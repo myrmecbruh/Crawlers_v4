@@ -8,7 +8,11 @@ function jobName(c){if(c.down)return c.home?'down, mending':'DOWN';if(c.asleep)r
  const n={wait:'idle',fetch:{stock:'hauling',site:'supplying',fuel:'fuelling',cook:'cooking',wear:'gearing up',arm:'arming',keep:'looting'}[j.to],gather:'gathering',dig:'digging',make:'making',eat:'eating',sleep:'to bed',rescue:'rescuing',fight:'FIGHTING',home:'heading home',drop:'hauling'}[j.t]||j.t;
  return(c.party?'⚑ ':'')+n;}
 function setSpeed(s){G.speed=s;clearInterval(timer);timer=null;if(s>0)timer=setInterval(step,1000/s);render();}
-function step(){tick();render();redraw();}
+let animT=0;
+// Walking is drawn between ticks at about 12 frames a second, and only while someone is moving at 1x or 4x. [slop]
+function frame(){if(!timer||G.speed>4)return;redraw();if((performance.now()-G._tickAt)*G.speed/1000<1)animT=setTimeout(frame,80);}
+function step(){tick();G._tickAt=performance.now();render();redraw();clearTimeout(animT);
+ if(G.speed<=4&&(G.cols.some(c=>c._mv===G.t)||G.crit.some(e=>e._mv===G.t)))animT=setTimeout(frame,80);}
 function tabColony(){
  let h='';const cd=G.card;
  h+='<div class="box"><b>Card of the day</b> '+(cd?'<span class="k-'+CARD[cd.k].kind+'">'+CARD[cd.k].n+'</span> '+(CARD[cd.k].pips?pips(cd.pips,CARD[cd.k].pips,'◆'):'')+'<br><i>'+CARD[cd.k].t+'</i>':'<i>none drawn yet</i>')+'</div>';

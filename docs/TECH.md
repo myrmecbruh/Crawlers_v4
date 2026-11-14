@@ -19,6 +19,8 @@
 - [gospel] Isometric pixel art. One voxel is a 32 px wide tile (32 x 16 diamond top); characters about 24 x 40.
 - [gospel] The camera turns in quarter turns and has a second, steeper angle.
 - [slop] The steeper angle draws the ground diamond 32 x 28; voxel sides stay 16 px tall at both angles. Keys: Q and E turn, R tilts.
+- [gospel] Characters animate walking with planted feet (no sliding) and face the way they move or work, in true isometric directions that follow the camera.
+- [slop] Two half-steps per tile; walking is drawn at about 12 frames a second, only while someone moves at 1x or 4x speed. At 16x characters step tile to tile.
 - [slop] Characters are layered sprites: body, six worn slots, two held items, pack tokens.
 - [slop] Material colour is applied by palette swap, not separate art per material.
 

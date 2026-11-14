@@ -61,7 +61,8 @@ function goTo(c,x,y,adj){
  const p=[],s=I(c.x,c.y);let i=best;while(i!==s){p.push(i);i=f.prev[i];}
  c.path=p.reverse();return true;
 }
-function setJob(c,j,x,y,adj){if(!goTo(c,x,y,adj))return false;c.job=j;for(const k of j.res||[])G.res[k]=c.id;return true;}
+const dirOf=(dx,dy)=>Math.abs(dx)>=Math.abs(dy)?(dx>=0?0:2):(dy>0?1:3);
+function setJob(c,j,x,y,adj){if(!goTo(c,x,y,adj))return false;if(adj){j.tx=x;j.ty=y;}c.job=j;for(const k of j.res||[])G.res[k]=c.id;return true;}
 function endJob(c){if(c.job)for(const k of c.job.res||[])if(G.res[k]===c.id)delete G.res[k];c.job=null;c.path=[];c.asleep=false;}
 // nearest reachable token tile matching spec. o.zone: look beyond the gate; o.loose: not in stockpile
 function findTok(c,spec,o){o=o||{};const f=flood(c);let best=null,bd=1e9;
@@ -255,18 +256,20 @@ function tickCol(c){
   if((c.wd[2]||c.wd[3])&&t%2)return;
   const i=c.path.shift(),x=i%W,y=(i-x)/W;
   if(!passable(c.x,c.y,x,y)){endJob(c);return;}
-  c.x=x;c.y=y;return;}
+  c._px=c.x;c._py=c.y;c._mv=G.t;c.face=dirOf(x-c.x,y-c.y);c.x=x;c.y=y;return;}
+ const j=c.job;if(j.t==='fight'){const e=G.crit.find(e=>e.id===j.id);if(e)c.face=dirOf(e.x-c.x,e.y-c.y);}
+ else if(j.tx!=null&&(j.tx!==c.x||j.ty!==c.y)&&!(j.t==='rescue'&&j.s)&&!(j.t==='fetch'&&j.s===0))c.face=dirOf(j.tx-c.x,j.ty-c.y);
  arrive(c);
 }
 function tickCrit(e){
  if(e.cd>0){e.cd--;return;}
  let b=null,bd=7;for(const c of G.cols){if(c.down||c.x<PW)continue;const d=md(c,e);if(d<bd){bd=d;b=c;}}
- if(b&&bd<=1){attack(e,b);e.cd=2;return;}
+ if(b&&bd<=1){e.face=dirOf(b.x-e.x,b.y-e.y);attack(e,b);e.cd=2;return;}
  if(!b&&ri(4))return;
  const opts=[[1,0],[-1,0],[0,1],[0,-1]].map(d=>({x:e.x+d[0],y:e.y+d[1]})).filter(p=>p.x>=PW&&passable(e.x,e.y,p.x,p.y)&&!G.crit.some(o=>o.x===p.x&&o.y===p.y));
  if(!opts.length)return;
  const p=b?opts.sort((p,q)=>md(p,b)-md(q,b))[0]:opts[ri(opts.length)];
- if(!b||md(p,b)<bd){e.x=p.x;e.y=p.y;}
+ if(!b||md(p,b)<bd){e._px=e.x;e._py=e.y;e._mv=G.t;e.face=dirOf(p.x-e.x,p.y-e.y);e.x=p.x;e.y=p.y;}
 }
 function dawn(){
  G.seam=false;
