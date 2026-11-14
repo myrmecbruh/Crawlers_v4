@@ -41,7 +41,7 @@
 - [gospel] Health is wounds per body area, tied to the six worn slots, not hit points.
 - [gospel] A defeated character is downed first, can be carried home to recover with a lasting scar, and dies only if abandoned.
 - [slop] Each area takes up to 2 wounds. A wounded area removes a die from actions that use it. A third wound anywhere downs the character.
-- [slop] Armour on the hit area rolls its material's hardness in dice; each success cancels a wound.
+- [gospel] Armour on the hit area rolls its material's hardness in dice; each success cancels a wound.
 - [gospel] A scar is a visible mark on the sprite. Roll a d6 to pick a trait: rolls with that trait succeed only on 6.
 - [slop] A corpse and its gear stay in the world as tokens.
 
@@ -49,7 +49,8 @@
 - [gospel] Six worn slots, each visible on the sprite: Head, Torso, Legs, Feet, Hands, Mantle (neck, back, shoulders).
 - [gospel] Two hands, separate from the six: each holds one thing (weapon, tool, shield or a resource token).
 - [gospel] A pack adds a few visible carried tokens.
-- [slop] A pack is a Mantle item; capacity 2 to 4 tokens, drawn on the character's back.
+- [gospel] A pack is a Mantle item; capacity 2 to 4 tokens. Wearing a pack means no cloak.
+- [slop] Pack tokens are drawn on the character's back.
 - [slop] Held items are also drawn on the sprite.
 
 ## Materials

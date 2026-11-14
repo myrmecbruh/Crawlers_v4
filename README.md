@@ -11,6 +11,7 @@ Design phase: no code yet. Start with `docs/`.
 | `docs/WORLD.md` | Voxels, generation, borders, expeditions, raids |
 | `docs/SETTLEMENT.md` | Tokens, stations, devices, cards |
 | `docs/TECH.md` | Stack, ticks, performance, art specs, UI, saves |
+| `docs/CONTENT.md` | Draft lists: materials, stations, creatures, goals, cards, scenarios |
 | `docs/ROADMAP.md` | Build order |
 | `docs/OPEN-QUESTIONS.md` | What is still undecided |
 

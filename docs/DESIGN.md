@@ -25,6 +25,7 @@
 
 ## Setting
 - [gospel] The possible premises are all true or possible, chosen like RimWorld's starting conditions: ruins of a fallen machine age (survivors in the husk of a dead high-tech civilisation, its failing machinery passing for magic); crashed or stranded colonists in an old, hostile, haunted world; an endless built underworld megastructure.
+- [gospel] All three scenarios are available from the start.
 - [slop] A new game picks a starting scenario. The scenario sets the starting colonists, tokens, plot and first event cards. It does not change the rules.
 
 ## Player role

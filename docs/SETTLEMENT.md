@@ -2,7 +2,7 @@
 
 ## Tokens
 - [gospel] Every resource is a token visible in the world. There is no abstract stockpile count.
-- [slop] A tile holds a stack of up to 6 tokens, all drawn.
+- [gospel] A tile holds a stack of up to 6 tokens, all drawn.
 - [slop] Colonists move tokens by carrying them, one per hand plus pack.
 
 ## Food
