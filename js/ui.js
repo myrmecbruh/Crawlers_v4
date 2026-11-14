@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id),panel=$('panel');
-let tool='look',tab='colony',info=null,psel={},timer=null;
+let tool='look',tab='colony',info=null,psel={},timer=null,askNew=false;
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const pips=(n,m,ch)=>'<span class="pp">'+(ch||'●').repeat(n)+'</span><span class="po">'+'○'.repeat(Math.max(0,m-n))+'</span>';
 const itn=t=>t?(t.card?'card':t.corpse?'body of '+t.corpse:(t.flawed?'flawed ':'')+M[t.m].n+(t.it?' '+ITEM[t.it].n.toLowerCase():'')):'–';
@@ -24,7 +24,7 @@ function tabColony(){
   h+='<table>'+AREA.map((a,i)=>'<tr><td>'+a+'</td><td>'+itn(c.worn[i])+'</td><td class="pp">'+'✚'.repeat(c.wd[i])+'</td></tr>').join('')+
    '<tr><td>Hands</td><td>'+itn(c.hands[0])+' / '+itn(c.hands[1])+'</td><td></td></tr><tr><td>Carrying</td><td>'+(c.carry.map(itn).join(', ')||'–')+' <span class="dim">('+c.carry.length+'/'+cap(c)+')</span></td><td></td></tr></table></div>';}
  if(G.over)h+='<div class="box k-bane"><b>No one is left.</b></div>';
- h+='<div class="box"><button data-a="new">New world</button> <span class="dim">Autosaves in this browser.</span></div>';
+ h+='<div class="box">'+(askNew?'<b class="k-bane">Abandon this settlement?</b> <button data-a="new">Yes, new world</button><button data-a="keep">Keep it</button>':'<button data-a="new">New world</button> <span class="dim">Autosaves in this browser.</span>')+'</div>';
  return h;
 }
 function tabOrders(){
@@ -88,7 +88,8 @@ document.addEventListener('click',e=>{
  else if(a==='recall')recall();
  else if(a==='bill'){const p=v.split(':'),b=bench();G.sites.push({id:G.nid++,kind:'bill',it:p[0],m:+p[1],x:b.x,y:b.y,spec:{m:+p[1]},need:ITEM[p[0]].cost,have:0});}
  else if(a==='unsite'){const s=G.sites.find(s=>s.id===+v);if(s){for(let i=0;i<s.have;i++)addTok(s.x,s.y,{m:s.m});G.sites=G.sites.filter(q=>q!==s);}}
- else if(a==='new'){if(confirm('Abandon this settlement and start a new world?')){newGame((Math.random()*1e9)|0);save();}}
+ else if(a==='new'){if(askNew){askNew=false;newGame((Math.random()*1e9)|0);save();}else askNew=true;}
+ else if(a==='keep')askNew=false;
  render();redraw();
 });
 let drag=null;
