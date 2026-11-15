@@ -17,17 +17,19 @@ function mkBlock(m,hh,lv){const c=document.createElement('canvas');c.width=32;c.
   if(!f)continue;f*=lv;if(m!==18&&hash2(px,py,m)<.14)f*=.88;
   g.fillStyle=shade(col,f);g.fillRect(px,py,1,1);}
  return c;}
-// Higher ground is drawn lighter, so a ledge reads against the ground behind it. One sprite per material, angle and height. [slop] amounts
-function blockSpr(m,hh,z){const k=m*16+z;return SPR[hh][k]||(SPR[hh][k]=mkBlock(m,hh,.72+.07*Math.min(z,10)));}
+// Higher ground is drawn lighter, so a ledge reads against the ground behind it. The owner chose this style ('tint');
+// the others (cam.elev = 'rim', 'depth', 'line') are kept only for comparison.
+// q is a brightness step: 2% each, 14 is neutral
+function blockSpr(m,hh,q){q=Math.max(0,Math.min(31,Math.round(q)));const k=m*32+q;return SPR[hh][k]||(SPR[hh][k]=mkBlock(m,hh,.72+.02*q));}
 // A pale rim along every top edge that drops away to lower ground (or nothing).
 const RIM={8:{},14:{}};
-function mkRim(hh,kind){const c=document.createElement('canvas');c.width=32;c.height=hh*2;const g=c.getContext('2d'),inD=(x,y)=>Math.abs(x-15.5)/16+Math.abs(y-(hh-.5))/hh<=1;
+function mkRim(hh,kind,dark){const c=document.createElement('canvas');c.width=32;c.height=hh*2;const g=c.getContext('2d'),inD=(x,y)=>Math.abs(x-15.5)/16+Math.abs(y-(hh-.5))/hh<=1;
  for(let py=0;py<hh*2;py++)for(let px=0;px<32;px++){if(!inD(px,py))continue;const L=px<16,U=py<hh;
   if(kind!==(U?(L?'e0':'e1'):(L?'e3':'e2')))continue;
   if(inD(px+(L?-1:1),py)&&inD(px,py+(U?-1:1)))continue;
-  g.fillStyle=U?'rgba(255,250,235,.3)':'rgba(255,250,235,.42)';g.fillRect(px,py,1,1);}
+  g.fillStyle=dark?'rgba(8,6,4,.5)':U?'rgba(255,250,235,.3)':'rgba(255,250,235,.42)';g.fillRect(px,py,1,1);}
  return c;}
-for(const hh of[8,14])for(const k of['e0','e1','e2','e3'])RIM[hh][k]=mkRim(hh,k);
+for(const hh of[8,14])for(const k of['e0','e1','e2','e3']){RIM[hh][k]=mkRim(hh,k);RIM[hh]['d'+k]=mkRim(hh,k,1);}
 // Ambient occlusion: dark bands on ground next to taller voxels, and along the foot of side faces. [slop] strengths
 const AO={8:{},14:{}};
 function mkAO(hh,kind){const c=document.createElement('canvas');c.width=32;c.height=hh*2+17;const g=c.getContext('2d'),band=t=>t<.14?.36:t<.3?.2:t<.46?.09:0;
@@ -165,7 +167,7 @@ function draw(){
  const putM=(m,o)=>{let x=o.x,y=o.y;if(o._mv===G.t&&al<1){const a=toV(o._px,o._py),b=toV(x,y);if(a[0]+a[1]>b[0]+b[1]){x=o._px;y=o._py;}}
   const i=I(x,y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
  for(const c of G.cols)if(c.by==null)putM(cm,c);for(const e of G.crit)putM(em,e);for(const q of G.sites)put(sm,q);for(const f of G.fx)put(xm,f);
- const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,S=SPR[hh];
+ const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,S=SPR[hh],EL=cam.elev||'tint',dgF=Math.round(cam.y/hh);
  for(let dg=0;dg<VW+VH-1;dg++)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
   const vy=dg-vx,sx=(vx-vy)*16,sy=dg*hh;if(sx<vx0||sx>vx1||sy<vy0||sy>vy1)continue;
   const wp_=toW(vx,vy),x=wp_[0],y=wp_[1],i=I(x,y),h=G.hgt[i];
@@ -173,14 +175,15 @@ function draw(){
   const fog=false,seen=n=>n[0]>=PW&&!G.rev[I(n[0],n[1])]?0:G.hgt[I(n[0],n[1])];
   let hE=0,hS=0;if(vx+1<VW)hE=seen(toW(vx+1,vy));if(vy+1<VH)hS=seen(toW(vx,vy+1));
   const z0=Math.max(0,Math.min(h-1,hE,hS));
-  for(let z=z0;z<h;z++)ctx.drawImage(blockSpr(G.vox[VI(x,y,z)],hh,z+1),sx-16,sy-(z+1)*16);
+  for(let z=z0;z<h;z++)ctx.drawImage(blockSpr(G.vox[VI(x,y,z)],hh,EL==='depth'?14+Math.max(-12,Math.min(12,dg-dgF)):EL==='tint'?4+(z+1)*5:EL==='line'?14:(z+1)*3.5),sx-16,sy-(z+1)*16);
   if(fog)continue;
   const ty=sy-h*16,ay=ty+hh,k=K(x,y),A=AO[hh],vh=(a,b)=>{if(a<0||b<0||a>=VW||b>=VH)return-1;const n=toW(a,b);return G.hgt[I(n[0],n[1])];};
   const n0=vh(vx-1,vy),n1=vh(vx,vy-1),n2=vx+1<VW?hE:-1,n3=vy+1<VH?hS:-1;
   if(n0>h)ctx.drawImage(A.e0,sx-16,ty);if(n1>h)ctx.drawImage(A.e1,sx-16,ty);if(n2>h)ctx.drawImage(A.e2,sx-16,ty);if(n3>h)ctx.drawImage(A.e3,sx-16,ty);
   if(n0<=h&&n1<=h&&vh(vx-1,vy-1)>h)ctx.drawImage(A.c0,sx-16,ty);if(n2<=h&&n1<=h&&vh(vx+1,vy-1)>h)ctx.drawImage(A.c1,sx-16,ty);
   if(n2<=h&&n3<=h&&vh(vx+1,vy+1)>h)ctx.drawImage(A.c2,sx-16,ty);if(n0<=h&&n3<=h&&vh(vx-1,vy+1)>h)ctx.drawImage(A.c3,sx-16,ty);
-  const RM=RIM[hh];if(n0<h)ctx.drawImage(RM.e0,sx-16,ty);if(n1<h)ctx.drawImage(RM.e1,sx-16,ty);if(n2<h)ctx.drawImage(RM.e2,sx-16,ty);if(n3<h)ctx.drawImage(RM.e3,sx-16,ty);
+  const RM=RIM[hh];if(EL==='line'){if(n0<h)ctx.drawImage(RM.de0,sx-16,ty);if(n1<h)ctx.drawImage(RM.de1,sx-16,ty);if(n2<h)ctx.drawImage(RM.de2,sx-16,ty);if(n3<h)ctx.drawImage(RM.de3,sx-16,ty);}
+  else if(EL==='rim'){if(n0<h)ctx.drawImage(RM.e0,sx-16,ty);if(n1<h)ctx.drawImage(RM.e1,sx-16,ty);if(n2<h)ctx.drawImage(RM.e2,sx-16,ty);if(n3<h)ctx.drawImage(RM.e3,sx-16,ty);}
   if(n3>=0&&n3<h)ctx.drawImage(A.sl,sx-16,sy-(n3+1)*16);if(n2>=0&&n2<h)ctx.drawImage(A.sr,sx-16,sy-(n2+1)*16);
   if(G.stock[k])diamond(sx,ty,'rgba(240,192,64,.5)');
   if(G.digs[k])diamond(sx,ty,'rgba(220,60,60,.45)',1);
