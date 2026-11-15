@@ -211,7 +211,8 @@ function arrive(c){
   const x=j.x,y=j.y,h=topZ(x,y);delete G.digs[K(x,y)];
   if(h>1){const m=topMat(x,y),tool=c.hands[0]&&c.hands[0].it==='pick'?1:0,seam=seamDie();
    const r=roll(c,0,SKILL[M[m].f],M[m].h>=3?2:1,tool+seam,'digs '+M[m].n);
-   G.vox[VI(x,y,h-1)]=0;G.hgt[I(x,y)]=h-1;const ft=featAt(x,y);if(ft)G.feats=G.feats.filter(q=>q!==ft);
+   G.vox[VI(x,y,h-1)]=0;let nh=h-1;while(nh>0&&!G.vox[VI(x,y,nh-1)])nh--;G.hgt[I(x,y)]=nh; // there may be a hollow underneath
+   const ft=featAt(x,y);if(ft)G.feats=G.feats.filter(q=>q!==ft);
    if(m!==19){if(r.ok)addTok(x,y,{m});else log('The '+M[m].n+' shatters to nothing.');}}
   endJob(c);break;}
  case'gather':{const ft=G.feats.find(q=>q.id===j.f);if(!ft||ft.left<=0){endJob(c);break;}const F=FEAT[ft.k];

@@ -37,6 +37,12 @@ function shapeRegion(x0,x1,cx,cy,R,s){
 function easeNeck(xa,xb){const d=xa<xb?1:-1;for(let x=xa+d;x!==xb+d;x+=d)for(let y=23;y<=25;y++){const i=I(x,y);if(G.mask[i]!==2||G.keep[i])continue;
   const p=G.hgt[I(x-d,24)],h=Math.max(p-1,Math.min(p+1,G.hgt[i]));if(h!==G.hgt[i])setCol(x,y,h,1,topMat(x,y)||1);}
  for(let x=Math.min(xa,xb);x<=Math.max(xa,xb);x++){const m=G.hgt[I(x,24)];for(const y of[23,25]){const i=I(x,y);if(G.mask[i]===2&&!G.keep[i]&&Math.abs(G.hgt[i]-m)>1)setCol(x,y,m,1,topMat(x,y)||1);}}}
+// Hollow out some wall columns below their top: windows in ruin walls, undercut ledges in cliffs. Walkers stay on top. [slop]
+function hollow(x0,x1,s,window){for(let y=1;y<H-1;y++)for(let x=Math.max(1,x0);x<=Math.min(W-2,x1);x++){const i=I(x,y);
+ if(G.mask[i]!==1||G.keep[i]||(x===47&&Math.abs(y-24)<=1))continue;const h=G.hgt[i];if(h<4)continue;
+ let g=0;for(const d of[[1,0],[-1,0],[0,1],[0,-1]])if(G.mask[I(x+d[0],y+d[1])]===2)g=Math.max(g,G.hgt[I(x+d[0],y+d[1])]);
+ if(!g||h-g<3)continue;const r=hash2(x,y,s);
+ if(window){if(r<.16)G.vox[VI(x,y,g+1)]=0;}else if(r<.3){G.vox[VI(x,y,g)]=0;if(r<.12&&h-g>3)G.vox[VI(x,y,g+1)]=0;}}}
 function scatter(k,n,x0,x1,y0,y1,avoid){
  for(let i=0,g=0;i<n&&g<2000;g++){const x=x0+ri(x1-x0+1),y=y0+ri(y1-y0+1);
   if(G.mask[I(x,y)]!==2||featAt(x,y)||G.stock[K(x,y)])continue;
@@ -70,7 +76,7 @@ function newGame(seed){
   if(mk===1){setCol(x,y,h+3,3,3);continue;}
   const n=noise(x/4,y/4,seed+7);setCol(x,y,h,1,n>.66?2:n>.56?1:19);
  }
- easeNeck(24,46);G.mask[I(47,24)]=2;setCol(47,24,topZ(46,24),1,19);
+ easeNeck(24,46);G.mask[I(47,24)]=2;setCol(47,24,topZ(46,24),1,19);hollow(0,PW-1,seed+91,true);
  for(let y=23;y<=25;y++)for(let x=23;x<=25;x++)G.stock[K(x,y)]=1;
  const a=[24,24];
  scatter('tree',34,2,45,2,45,a);scatter('moss',14,2,45,2,45,a);scatter('tuber',9,2,45,2,45,a);
@@ -96,7 +102,7 @@ function genZone(){
   if(x<=50&&y>=23&&y<=25)h=gh; else if(x<=52&&y>=22&&y<=26)h=Math.max(gh-1,Math.min(gh+1,h));
   const n=noise(x/5,y/5,s+3);setCol(x,y,h,1,n>.7?3:n>.45?2:1);G.rev[I(x,y)]=0;
  }
- easeNeck(47,72);
+ easeNeck(47,72);hollow(PW,W-1,s+91,false);
  scatter('vein',8,52,93,2,45);scatter('scrap',3,52,93,2,45);scatter('glass',3,52,93,2,45);
  const before=G.feats.length;scatter('cache',1,74,93,4,43);if(G.feats.length===before)scatter('cache',1,60,93,2,45);
  for(let i=0,g=0;i<5&&g<500;g++){const x=58+ri(34),y=3+ri(42);if(G.mask[I(x,y)]===2){mkRat(x,y);i++;}}

@@ -46,6 +46,50 @@ function colSpr(hh,mt,mb,h,span,sg){
     let ff=(right?.58:.8)*lv(h-Math.floor(dep));if(hash2(x,yy,dep<1?mt:mb)<.14)ff*=.88;put(x,yy,col,ff);}}}
  g.putImageData(img,0,0);COLS.set(key,c);return c;
 }
+// ---- Voxel pictures: true 3D shaping. The solid is a smooth field: every voxel contributes a box whose faces fade over a
+// width `w` (0.22 of a voxel for soft materials, almost nothing for hard ones). Where the field is above one half there is
+// rock. A lone edge therefore rounds off, an inside corner fills in, and a flat face stays exactly where the grid puts it,
+// so each voxel keeps its bulk. For one voxel and its 26 neighbours, a ray is cast through every pixel to find that surface,
+// and the pixel is lit by the surface's direction and darkened where rock stands close in front of it (ambient occlusion).
+// A shape depends only on the 27 occupancies, so it is ray-traced once and then tinted per material and height. [slop] amounts
+const SHAPES=new Map(),VSPR=new Map(),SQ=[],SW=.25;
+function buildShape(key){
+ const hh=key.length>27?+key.slice(0,key.length-27):8,sig=key.slice(-27),hard=sig[13]==='1',cls=[],wd=[],acl=[],awd=[];
+ // A hard voxel is shaped as a crisp cube among hard voxels only (soft neighbours are drawn over it where they cover it).
+ // A soft voxel is shaped as if every neighbour were soft, so it piles smoothly against walls. Both see every neighbour for shading.
+ for(let i=0;i<27;i++){const c=+sig[i];cls.push(hard?(c===1?1:0):c?2:0);wd.push(hard?.03:.22);acl.push(c);awd.push(c===2?.22:.03);}
+ const ox=Math.ceil((1+2*SW)*16),oy=Math.ceil(2*SW*hh+(1+SW)*16)+1,w=ox*2,h=oy+Math.ceil((2+2*SW)*hh+SW*16)+1,sh=new Float32Array(w*h);
+ // field value at a point, or (own=true) which voxel contributes most there
+ const pad=hard?.03:0; // hard cubes are drawn a hair oversize so no pixel is lost where they meet soft ground
+ const F=(u,v,z,own,C,Wd)=>{let f=0,bw=0,bi=-1;C=C||cls;Wd=Wd||wd;
+  for(let c=0;c<27;c++){if(!C[c])continue;const ww=Wd[c],lim=.5+ww+pad;
+   const du=Math.abs(u-(c%3)+.5);if(du>=lim)continue;const dv=Math.abs(v-((c/3|0)%3)+.5);if(dv>=lim)continue;const dz=Math.abs(z-(c/9|0)+.5);if(dz>=lim)continue;
+   const k=(du<=lim-2*ww?1:(lim-du)/(2*ww))*(dv<=lim-2*ww?1:(lim-dv)/(2*ww))*(dz<=lim-2*ww?1:(lim-dz)/(2*ww));
+   f+=k;if(k>bw){bw=k;bi=c;}}
+  return own?bi:f;};
+ const dz=hh/8,lo=-SW,hi=1+SW,ds=.05,e=.03;
+ for(let py=0;py<h;py++)for(let px=0;px<w;px++){
+  const a=(py-oy+.5+16)/hh,b=(px-ox+.5)/16,u1=(a+b)/2,v1=(a-b)/2; // where this pixel's ray crosses the voxel's top plane
+  const t1=Math.min(hi-u1,hi-v1,(hi-1)/dz),t0=Math.max(lo-u1,lo-v1,(lo-1)/dz);if(t1<=t0)continue;
+  if(F(u1+t1,v1+t1,1+t1*dz)>=.5)continue; // the ray arrives already inside rock: a nearer voxel owns this pixel
+  let t=t1,hit=false;while(t>t0){t-=ds;if(F(u1+t,v1+t,1+t*dz)>=.5){hit=true;break;}}
+  if(!hit)continue;let ta=t+ds,tb=t;for(let i=0;i<5;i++){const tm=(ta+tb)/2;if(F(u1+tm,v1+tm,1+tm*dz)>=.5)tb=tm;else ta=tm;}
+  const hu=u1+tb,hv=v1+tb,hz=1+tb*dz;if(F(hu,hv,hz,true)!==13)continue; // the surface here belongs to a neighbour
+  const gu=F(hu+e,hv,hz)-F(hu-e,hv,hz),gv=F(hu,hv+e,hz)-F(hu,hv-e,hz),gz=F(hu,hv,hz+e)-F(hu,hv,hz-e),gl=Math.hypot(gu,gv,gz)||1;
+  const nu=-gu/gl,nv=-gv/gl,nz=-gz/gl,wz=Math.max(0,nz)**2,wu=Math.max(0,nu)**2,wv=Math.max(0,nv)**2,sm=wz+wu+wv;
+  let s=sm>1e-4?(1.12*wz+.58*wu+.8*wv)/sm:.5;
+  s*=1-.5*Math.min(1,1.5*F(hu+nu*.3,hv+nv*.3,hz+nz*.3,false,acl,awd)+.8*F(hu+nu*.6,hv+nv*.6,hz+nz*.6,false,acl,awd));
+  sh[py*w+px]=Math.max(.05,s);}
+ SHAPES.set(key,{ox,oy,w,h,sh});
+}
+// build queued shapes for a few milliseconds, then ask for another frame until none are left
+function buildSome(ms){const t=performance.now();let n=0;while(SQ.length&&performance.now()-t<ms){buildShape(SQ.shift());n++;}return n;}
+function voxSpr(key,m,z){const k=key+'|'+m+'|'+z;let c=VSPR.get(k);if(c)return c;
+ const sp=SHAPES.get(key),col=rgbOf(m),lv=.72+.02*Math.min(31,4+(z+1)*5);c=document.createElement('canvas');c.width=sp.w;c.height=sp.h;
+ const g=c.getContext('2d'),img=g.createImageData(sp.w,sp.h),d=img.data,sh=sp.sh;
+ for(let i=0;i<sh.length;i++){const s=sh[i];if(!s)continue;const f=s*lv*(hash2(i%sp.w,(i/sp.w)|0,m)<.14?.88:1),j=i*4;
+  d[j]=Math.min(255,col[0]*f);d[j+1]=Math.min(255,col[1]*f);d[j+2]=Math.min(255,col[2]*f);d[j+3]=255;}
+ g.putImageData(img,0,0);VSPR.set(k,c);return c;}
 // the same picture as a flat silhouette in the fog colour
 function fogOf(c){if(c._fog)return c._fog;const o=document.createElement('canvas');o.width=c.width;o.height=c.height;const g=o.getContext('2d');
  g.drawImage(c,0,0);g.globalCompositeOperation='source-in';g.fillStyle=FOGC;g.fillRect(0,0,o.width,o.height);return c._fog=o;}
@@ -228,19 +272,26 @@ function draw(){
   const z0=Math.max(0,Math.min(h-1,hE,hS));
   const far=(dgF-dg)*hh/8,fa=far<=4?0:Math.min(.72,Math.round((far-4)/22*.72*12)/12);
   ctx.globalAlpha=1;
-  const sv=(a,b)=>a<0||b<0||a>=VW||b>=VH?0:seen(toW(a,b)),sn=n=>n<h?'0':n>h?'2':'1';
-  const sg=sn(sv(vx-1,vy))+sn(sv(vx,vy-1))+sn(hE)+sn(hS)+sn(sv(vx-1,vy-1))+sn(sv(vx+1,vy-1))+sn(sv(vx+1,vy+1))+sn(sv(vx-1,vy+1));
-  const mt=G.vox[VI(x,y,h-1)],cs=colSpr(hh,mt,h>1?G.vox[VI(x,y,h-2)]:mt,h,h-z0,sg);
-  ctx.drawImage(cs,sx-16,sy-h*16-TM);
-  if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-16,sy-h*16-TM);}
+  // Every voxel with a face toward the viewer is drawn from a picture shaped by its 26 neighbours. Until those pictures
+  // exist (they are built a few at a time), the column is drawn with the quicker column picture instead.
+  const oc=(a,b,z)=>{if(z<0)return 2;if(z>=Z||a<0||b<0||a>=VW||b>=VH)return 0;const n=toW(a,b),j=I(n[0],n[1]);if(n[0]>=PW&&!G.rev[j])return 0;
+   const m=G.vox[(z*H+n[1])*W+n[0]];return m?(M[m].soft?2:1):0;};
+  let ready=true;const vl=[];
+  for(let z=0;z<h;z++){const m=G.vox[VI(x,y,z)];if(!m)continue;const o1=oc(vx,vy,z+1),o2=oc(vx+1,vy,z),o3=oc(vx,vy+1,z);
+   if(M[m].soft?(o1&&o2&&o3):(o1===1&&o2===1&&o3===1))continue; // nothing of it can be seen
+   let sig='';for(let c=-1;c<=1;c++)for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++)sig+=oc(vx+a,vy+b,z+c);
+   const key=hh+sig,shp=SHAPES.get(key);
+   if(!shp){ready=false;if(shp===undefined){SHAPES.set(key,null);SQ.push(key);}}else vl.push(z,m,key);}
+  if(ready)for(let q=0;q<vl.length;q+=3){const cs=voxSpr(vl[q+2],vl[q+1],vl[q]),sp=SHAPES.get(vl[q+2]);
+   ctx.drawImage(cs,sx-sp.ox,sy-vl[q]*16-sp.oy);if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-sp.ox,sy-vl[q]*16-sp.oy);ctx.globalAlpha=1;}}
+  else{const sv=(a,b)=>a<0||b<0||a>=VW||b>=VH?0:seen(toW(a,b)),sn=n=>n<h?'0':n>h?'2':'1';
+   const sg=sn(sv(vx-1,vy))+sn(sv(vx,vy-1))+sn(hE)+sn(hS)+sn(sv(vx-1,vy-1))+sn(sv(vx+1,vy-1))+sn(sv(vx+1,vy+1))+sn(sv(vx-1,vy+1));
+   const mt=G.vox[VI(x,y,h-1)],cs=colSpr(hh,mt,(h>1&&G.vox[VI(x,y,h-2)])||mt,h,h-z0,sg);
+   ctx.drawImage(cs,sx-16,sy-h*16-TM);
+   if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-16,sy-h*16-TM);}}
   ctx.globalAlpha=1-fa;
   if(fog)continue;
-  const ty=sy-h*16,ay=ty+hh,k=K(x,y),A=AO[hh],vh=(a,b)=>{if(a<0||b<0||a>=VW||b>=VH)return-1;const n=toW(a,b);return G.hgt[I(n[0],n[1])];};
-  const n0=vh(vx-1,vy),n1=vh(vx,vy-1),n2=vx+1<VW?hE:-1,n3=vy+1<VH?hS:-1;
-  if(n0>h)ctx.drawImage(A.e0,sx-16,ty);if(n1>h)ctx.drawImage(A.e1,sx-16,ty);if(n2>h)ctx.drawImage(A.e2,sx-16,ty);if(n3>h)ctx.drawImage(A.e3,sx-16,ty);
-  if(n0<=h&&n1<=h&&vh(vx-1,vy-1)>h)ctx.drawImage(A.c0,sx-16,ty);if(n2<=h&&n1<=h&&vh(vx+1,vy-1)>h)ctx.drawImage(A.c1,sx-16,ty);
-  if(n2<=h&&n3<=h&&vh(vx+1,vy+1)>h)ctx.drawImage(A.c2,sx-16,ty);if(n0<=h&&n3<=h&&vh(vx-1,vy+1)>h)ctx.drawImage(A.c3,sx-16,ty);
-  if(n3>=0&&n3<h)ctx.drawImage(A.sl,sx-16,sy-(n3+1)*16);if(n2>=0&&n2<h)ctx.drawImage(A.sr,sx-16,sy-(n2+1)*16);
+  const ty=sy-h*16,ay=ty+hh,k=K(x,y);
   if(G.stock[k])diamond(sx,ty,'rgba(240,192,64,.5)');
   if(G.digs[k])diamond(sx,ty,'rgba(220,60,60,.45)',1);
   if(x===47&&y===24&&!G.gateOpen){rc(sx-8,ay-22,16,24,'#3a2c20');rc(sx-8,ay-12,16,2,'#aab3bd');}
@@ -255,6 +306,7 @@ function draw(){
   const xx=xm.get(i);if(xx){let row=0;for(const f of xx){const w=f.dice.length*8;for(let n=0;n<f.dice.length;n++)dieSpr(sx-w/2+n*8,ay-44-row*9,f.dice[n],f.dice[n]>=f.tgt);row++;}}
  }
  ctx.globalAlpha=1;ctx.setTransform(1,0,0,1,0,0);
+ if(SQ.length&&buildSome(14))redraw();
  const t=tod(),a=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;if(a)rc(0,0,cw,ch,'rgba(8,10,44,'+a+')');
 }
 function pick(px,py){

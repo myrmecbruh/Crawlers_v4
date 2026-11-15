@@ -24,9 +24,12 @@
 - [gospel] Voxels have ambient occlusion.
 - [gospel] Terrain is shaped in 3D but drawn in 2D: each voxel's shape comes from the voxels around it, and each column is rendered once into a cached picture and drawn as before.
 - [gospel] Each voxel keeps a fair amount of bulk, so the terrain still reads as a game grid, while flowing more naturally.
-- [slop] A voxel's top rounds off toward lower neighbours and a small skirt piles against higher ones; the middle stays flat. How far it rounds is per material (`soft`): ash 0.24 of a voxel, rubble 0.2, granite 0.13, everything else 0 (hard cubes, so ruin walls stay square).
+- [gospel] Every voxel is shaped by all 26 of its neighbours, so overhangs, arches, windows and undercut cliffs are drawn properly.
+- [slop] How: the solid is a smooth field in which each voxel's faces fade over a short width; a ray is cast through each pixel of a voxel's picture to find the surface, which is lit by its direction and darkened where rock stands close in front of it. Lone edges round off, inside corners fill in, flat faces stay on the grid. A shape is ray-traced once per arrangement of the 27 voxels, then tinted per material and height. Pictures are built a few at a time; until one exists that column is drawn with a simpler picture.
+- [slop] Soft materials (ash, rubble, granite) round over 0.22 of a voxel. Everything else is a hard cube, so ruin walls stay square.
+- [slop] The ambient occlusion is now part of each voxel's picture rather than a separate overlay.
 - [slop] The shaping is looks only: walking, digging and building still work on whole voxels.
-- [slop] Every column is a stack with no overhangs yet, so in practice a voxel is shaped by the eight columns around it. Caves and overhangs would need the picture maker extended.
+- [slop] To give the 3D shaping something to show, ruin walls get window holes and zone cliffs get undercut ledges. Characters still walk only on the top of each column: they cannot go under an overhang or into a hollow yet.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 4 rows behind the point you are looking at and reaches 72% haze 22 rows further back. Shadows are three-band dark ellipses in the ambient occlusion colour.
