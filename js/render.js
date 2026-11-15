@@ -42,6 +42,20 @@ function mkAO(hh,kind){const c=document.createElement('canvas');c.width=32;c.hei
   if(al){g.fillStyle='rgba(6,6,14,'+al+')';g.fillRect(px,py,1,1);}}
  return c;}
 for(const hh of[8,14])for(const k of['e0','e1','e2','e3','c0','c1','c2','c3','sl','sr'])AO[hh][k]=mkAO(hh,k);
+// Distance fog: ground further back than where you are looking fades into haze. [slop] colour, start and depth
+const FOGC='#262a36',FOGB={};
+for(const hh of[8,14]){const c=document.createElement('canvas');c.width=32;c.height=hh*2+17;const g=c.getContext('2d');g.fillStyle=FOGC;
+ for(let py=0;py<hh*2+17;py++)for(let px=0;px<32;px++){const mx=px<16?px:31-px,y0=hh+Math.floor(mx*hh/16);
+  if(Math.abs(px-15.5)/16+Math.abs(py-(hh-.5))/hh<=1||(py>=y0&&py<y0+17))g.fillRect(px,py,1,1);}
+ FOGB[hh]=c;}
+// Shadows under things, in the same colour and three bands as the ambient occlusion.
+const SHAD={};
+function shadow(x,y,rx){const hh=HH(),k=hh+'|'+rx;let c=SHAD[k];
+ if(!c){const ry=Math.max(2,Math.round(rx*hh/16));c=SHAD[k]=document.createElement('canvas');c.width=rx*2+1;c.height=ry*2+1;const g=c.getContext('2d');
+  for(let py=0;py<=ry*2;py++)for(let px=0;px<=rx*2;px++){const t=Math.hypot((px-rx)/rx,(py-ry)/ry),al=t<.5?.36:t<.78?.2:t<=1?.09:0;
+   if(al){g.fillStyle='rgba(6,6,14,'+al+')';g.fillRect(px,py,1,1);}}}
+ ctx.drawImage(c,Math.round(x)-(c.width>>1),Math.round(y)-(c.height>>1));}
+const FSH={tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
 let dirty=true;
 function redraw(){if(dirty)return;dirty=true;requestAnimationFrame(draw);}
 function fit(){const r=cv.parentElement.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);
@@ -80,6 +94,7 @@ function leg(hx,hy,fx,fy,col,fc,boot){const y1=Math.round(fy)-2,n=Math.max(1,y1-
 function charSpr(c,ax,ay,mv){
  const skin='#c9a183',rag='#5e574c',hair='#2a2420',mc=it=>it?M[it.m].c:null,w=c.worn;
  if(c.down||c.asleep){const b=ay+2;
+  shadow(ax,ay+1,12);
   if(c.id===G.sel){ctx.strokeStyle='#f0c040';ctx.beginPath();ctx.ellipse(ax,ay+1,11,4,0,0,7);ctx.stroke();}
   rc(ax-9,b-5,14,5,mc(w[1])||rag);rc(ax-9,b-5,5,5,mc(w[2])||rag);rc(ax+5,b-6,5,5,skin);if(w[0])rc(ax+8,b-7,3,6,mc(w[0]));
   if(c.down){rc(ax-2,b-4,3,2,'#c02020');}else{rc(ax+9,b-12,3,1,'#ccd');rc(ax+10,b-11,1,1,'#ccd');rc(ax+9,b-10,3,1,'#ccd');}return;}
@@ -90,6 +105,7 @@ function charSpr(c,ax,ay,mv){
   fl=k?sw:st;fr=k?st:sw;ax=Math.round(mv.x0+(mv.x1-mv.x0)*p);ay=Math.round(mv.y0+(mv.y1-mv.y0)*p-Math.abs(Math.sin(2*Math.PI*p)));
  }else{fl=[ax-2,ay+2];fr=[ax+3,ay+2];}
  const b=ay+2,F=facing(c),X=(x,ww)=>F.f>0?ax+x:ax-x-ww,r=(x,y,ww,h,col)=>rc(X(x,ww),y,ww,h,col);
+ shadow(ax,ay+2,8);
  if(c.id===G.sel){ctx.strokeStyle='#f0c040';ctx.beginPath();ctx.ellipse(ax,ay+1,9,4,0,0,7);ctx.stroke();}
  const m=w[5],tc=mc(w[1])||rag,lc=mc(w[2])||rag,fc=mc(w[3])||skin,hc=mc(w[4])||skin;
  const fam=it=>it?M[it.m].f:'';
@@ -175,7 +191,11 @@ function draw(){
   const fog=false,seen=n=>n[0]>=PW&&!G.rev[I(n[0],n[1])]?0:G.hgt[I(n[0],n[1])];
   let hE=0,hS=0;if(vx+1<VW)hE=seen(toW(vx+1,vy));if(vy+1<VH)hS=seen(toW(vx,vy+1));
   const z0=Math.max(0,Math.min(h-1,hE,hS));
-  for(let z=z0;z<h;z++)ctx.drawImage(blockSpr(G.vox[VI(x,y,z)],hh,EL==='depth'?14+Math.max(-12,Math.min(12,dg-dgF)):EL==='tint'?4+(z+1)*5:EL==='line'?14:(z+1)*3.5),sx-16,sy-(z+1)*16);
+  const far=(dgF-dg)*hh/8,fa=far<=4?0:Math.min(.72,Math.round((far-4)/22*.72*12)/12);
+  ctx.globalAlpha=1;
+  for(let z=z0;z<h;z++){ctx.drawImage(blockSpr(G.vox[VI(x,y,z)],hh,EL==='depth'?14+Math.max(-12,Math.min(12,dg-dgF)):EL==='tint'?4+(z+1)*5:EL==='line'?14:(z+1)*3.5),sx-16,sy-(z+1)*16);
+   if(fa){ctx.globalAlpha=fa;ctx.drawImage(FOGB[hh],sx-16,sy-(z+1)*16);ctx.globalAlpha=1;}}
+  ctx.globalAlpha=1-fa;
   if(fog)continue;
   const ty=sy-h*16,ay=ty+hh,k=K(x,y),A=AO[hh],vh=(a,b)=>{if(a<0||b<0||a>=VW||b>=VH)return-1;const n=toW(a,b);return G.hgt[I(n[0],n[1])];};
   const n0=vh(vx-1,vy),n1=vh(vx,vy-1),n2=vx+1<VW?hE:-1,n3=vy+1<VH?hS:-1;
@@ -189,14 +209,16 @@ function draw(){
   if(G.digs[k])diamond(sx,ty,'rgba(220,60,60,.45)',1);
   if(x===47&&y===24&&!G.gateOpen){rc(sx-8,ay-22,16,24,'#3a2c20');rc(sx-8,ay-12,16,2,'#aab3bd');}
   const ss=sm.get(i);if(ss)for(const q of ss){diamond(sx,ty,'rgba(120,200,255,.8)');for(let n=0;n<q.need;n++)rc(sx-6+n*5,ay-2,4,4,n<q.have?'#7fd0ff':'#234');}
-  const ff=fm.get(i);if(ff)for(const f of ff)featSpr(f,sx,ay);
-  const tk=G.tok[k];if(tk)for(let n=0;n<tk.length;n++)tokSpr(tk[n],sx-13+(n%3)*9,ay-4-Math.floor(n/3)*8+(ff?4:0));
+  const ff=fm.get(i);if(ff)for(const f of ff){shadow(sx,ay+1,FSH[f.k]||6);featSpr(f,sx,ay);}
+  const tk=G.tok[k];if(tk){const nc=Math.min(3,tk.length);shadow(sx-13+nc*4.5,ay+3+(ff?4:0),3+nc*4);}
+  if(tk)for(let n=0;n<tk.length;n++)tokSpr(tk[n],sx-13+(n%3)*9,ay-4-Math.floor(n/3)*8+(ff?4:0));
   const ee=em.get(i);if(ee)for(const e of ee){const mv=mover(e),ex=mv?Math.round(mv.x0+(mv.x1-mv.x0)*mv.p):anc(e.x,e.y)[0],ey=mv?Math.round(mv.y0+(mv.y1-mv.y0)*mv.p-(mv.p*4%2<1?1:0)):anc(e.x,e.y)[1],f=facing(e).f;
-   rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(e))rc(ex-2,ey-4,2,2,'#d02020');}
+   shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(e))rc(ex-2,ey-4,2,2,'#d02020');}
   const cc=cm.get(i);if(cc)for(let n=0;n<cc.length;n++){const c=cc[n],mv=mover(c),o=n*5-(cc.length-1)*2;if(mv){mv.x0+=o;mv.x1+=o;charSpr(c,0,0,mv);}else{const a=anc(c.x,c.y);charSpr(c,a[0]+o,a[1],null);}}
+  ctx.globalAlpha=1;
   const xx=xm.get(i);if(xx){let row=0;for(const f of xx){const w=f.dice.length*8;for(let n=0;n<f.dice.length;n++)dieSpr(sx-w/2+n*8,ay-44-row*9,f.dice[n],f.dice[n]>=f.tgt);row++;}}
  }
- ctx.setTransform(1,0,0,1,0,0);
+ ctx.globalAlpha=1;ctx.setTransform(1,0,0,1,0,0);
  const t=tod(),a=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;if(a)rc(0,0,cw,ch,'rgba(8,10,44,'+a+')');
 }
 function pick(px,py){

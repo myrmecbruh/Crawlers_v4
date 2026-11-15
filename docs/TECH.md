@@ -22,6 +22,9 @@
 - [gospel] Characters animate walking with planted feet (no sliding) and face the way they move or work, in true isometric directions that follow the camera.
 - [slop] Two half-steps per tile; walking is drawn at about 12 frames a second, only while someone moves at 1x or 4x speed. At 16x characters step tile to tile.
 - [gospel] Voxels have ambient occlusion.
+- [gospel] There is a real distance fog.
+- [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
+- [slop] Fog starts 4 rows behind the point you are looking at and reaches 72% haze 22 rows further back. Shadows are three-band dark ellipses in the ambient occlusion colour.
 - [gospel] Height differences must be readable from above, including a ledge seen against lower ground behind it.
 - [gospel] Elevation is shown by a strong height tint with no outlines: higher ground is lighter.
 - [slop] The tint is 10% per voxel of height.
