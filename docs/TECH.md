@@ -30,6 +30,8 @@
 - [slop] The tint is 10% per voxel of height.
 - [gospel] Every item has a different shape and texture for each material it can be made of.
 - [slop] Shapes vary by material family (a metal pick, a stone pick, a bone pick); textures vary by material (scrap is rust-patched, iron is clean). Token icons are 8 x 8.
+- [gospel] Skin, hair and eye colours are randomised per character.
+- [slop] Picked from 8 skin tones, 9 hair colours and 6 eye colours.
 - [slop] Characters are layered sprites: body, six worn slots, two held items, pack tokens.
 - [slop] Material colour is applied by palette swap, not separate art per material.
 

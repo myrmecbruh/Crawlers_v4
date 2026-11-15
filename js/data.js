@@ -76,4 +76,7 @@ const GOAL={
  reclaim:{n:'Reclaim tiles',t:'Carry wood out and light braziers. Lit ground is not forgotten. A brazier burns 6 days.',feats:[],loot:null},
  card:{n:'Find a card',t:'Find the sealed cache and bring back what is in it.',feats:['cache'],loot:{card:1}}
 };
+const SKIN=['#f0d2b6','#e0b592','#c9a183','#a97c5b','#85593c','#5f3d28','#b9a08e','#d8c7b4'];
+const HAIR=['#2a2420','#4a3320','#7a5230','#b08840','#c8a050','#8a3a22','#9a9a98','#d8d4cc','#15131a'];
+const EYE=['#221a14','#3a2a1a','#2f4a6a','#3a6a4a','#6a6a72','#7a5a20'];
 const NAMES=['Odd','Mara','Juss','Kell','Vey','Harn','Isk','Dola','Pim','Rook','Sable','Tam'];
