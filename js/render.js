@@ -62,7 +62,8 @@ function held(it,x,b){if(!it)return;const m=M[it.m],c=m.c,f=m.f,w='#6a4c30',hi=s
 function facing(c){const d=[[1,0],[0,1],[-1,0],[0,-1]][c.face||0];let vx=d[0],vy=d[1];
  if(cam.yaw===1){vx=-d[1];vy=d[0];}else if(cam.yaw===2){vx=-d[0];vy=-d[1];}else if(cam.yaw===3){vx=d[1];vy=-d[0];}
  return{f:vx>0||vy<0?1:-1,back:vx<0||vy<0};}
-function leg(hx,hy,fx,fy,col,fc,boot){for(let i=0;i<8;i++){const t=i/7;rc(Math.round(hx+(fx-hx)*t)-1,Math.round(hy+(fy-2-hy)*t),3,1,boot&&i>4?fc:col);}rc(Math.round(fx)-1,Math.round(fy)-2,3,2,fc);}
+// one row per pixel of height, however far the foot is from the hip, so a long stride or a step down leaves no gaps
+function leg(hx,hy,fx,fy,col,fc,boot){const y1=Math.round(fy)-2,n=Math.max(1,y1-hy);for(let y=hy;y<y1;y++){const t=(y-hy)/n;rc(Math.round(hx+(fx-hx)*t)-1,y,3,1,boot&&y>=y1-3?fc:col);}rc(Math.round(fx)-1,y1,3,2,fc);}
 // mv: null when standing, else {x0,y0,x1,y1,p}: screen anchors of the tile left and the tile entered, and progress 0..1
 function charSpr(c,ax,ay,mv){
  const skin='#c9a183',rag='#5e574c',hair='#2a2420',mc=it=>it?M[it.m].c:null,w=c.worn;
@@ -81,7 +82,7 @@ function charSpr(c,ax,ay,mv){
  const m=w[5],tc=mc(w[1])||rag,lc=mc(w[2])||rag,fc=mc(w[3])||skin,hc=mc(w[4])||skin;
  const fam=it=>it?M[it.m].f:'';
  const T=(x,y,ww,h,it,f)=>ctx.drawImage(texFor(it.m,f),0,0,ww,h,X(x,ww),y,ww,h); // textured cloth
- const legs=()=>{leg(ax-2,b-10,fl[0],fl[1],shade(lc,.85),fc,!!w[3]);leg(ax+2,b-10,fr[0],fr[1],lc,fc,!!w[3]);
+ const legs=()=>{rc(ax-3,b-11,7,2,shade(lc,.85));leg(ax-2,b-10,fl[0],fl[1],shade(lc,.85),fc,!!w[3]);leg(ax+2,b-10,fr[0],fr[1],lc,fc,!!w[3]);
   if(fam(w[2])==='fiber'){rc(ax-3,b-10,7,1,'#c9b39a');}else if(w[2]){rc(ax-3,b-7,1,1,shade(lc,.6));rc(ax+3,b-6,1,1,shade(lc,.6));}};
  const cap=()=>{const h=w[0];if(!h)return;const c=mc(h),k=fam(h);
   if(k==='metal'){r(-4,b-31,8,3,c);r(-3,b-32,6,1,shade(c,1.35));r(-4,b-28,8,1,shade(c,.7));if(!F.back)r(1,b-28,1,3,c);}
@@ -131,6 +132,9 @@ function featSpr(f,ax,ay){
  case'vein':rc(ax-6,ay-8,12,10,'#5a5d66');rc(ax-4,ay-6,3,2,'#c8d0da');rc(ax+1,ay-3,4,2,'#c8d0da');rc(ax-1,ay-9,2,2,'#c8d0da');break;
  case'glass':rc(ax-3,ay-12,3,14,'#3f6e6c');rc(ax,ay-8,4,10,'#5f9e9a');rc(ax-5,ay-5,2,7,'#5f9e9a');break;
  case'cache':rc(ax-6,ay-7,12,9,'#3a3a44');rc(ax-6,ay-7,12,2,'#7fe0d0');rc(ax-1,ay-3,2,2,'#7fe0d0');break;
+ case'nest':rc(ax-8,ay-4,16,6,'#4a3c30');rc(ax-6,ay-7,12,4,'#5a4a3a');rc(ax-2,ay-5,5,3,'#15110e');rc(ax-7,ay-8,2,2,'#d8d0b8');rc(ax+4,ay-9,3,1,'#d8d0b8');rc(ax+6,ay-3,2,1,'#d8d0b8');break;
+ case'cage':rc(ax-6,ay-20,12,2,'#7a4a34');rc(ax-6,ay,12,2,'#7a4a34');for(let i=-6;i<=5;i+=3)rc(ax+i,ay-18,1,18,'#9a5a3c');rc(ax-2,ay-6,5,5,'#5e574c');rc(ax-1,ay-10,3,4,'#c9a183');break;
+ case'brazier':rc(ax-1,ay-6,2,8,'#3a3a44');rc(ax-4,ay-9,8,3,'#55555f');rc(ax-3,ay-13,6,4,'#e07020');rc(ax-2,ay-16,3,4,'#f0c040');rc(ax+1,ay-14,1,2,'#f0c040');break;
  case'hearth':{const c=M[f.m].c;rc(ax-8,ay-3,16,6,shade(c,.7));rc(ax-6,ay-5,12,3,c);
   if(f.fuel>0){rc(ax-3,ay-10,6,6,'#e07020');rc(ax-2,ay-13,3,4,'#f0c040');rc(ax+1,ay-11,2,2,'#f0c040');}else rc(ax-3,ay-6,6,2,'#222');break;}
  case'bench':{const c=M[f.m].c;rc(ax-9,ay-9,18,3,c);rc(ax-8,ay-6,2,8,shade(c,.7));rc(ax+6,ay-6,2,8,shade(c,.7));rc(ax-4,ay-11,4,2,'#aab3bd');break;}
@@ -144,7 +148,7 @@ function draw(){
  const vx0=cam.x-cw/2/s-20,vx1=cam.x+cw/2/s+20,vy0=cam.y-ch/2/s-20,vy1=cam.y+ch/2/s+Z*16+20;
  const fm=new Map(),cm=new Map(),em=new Map(),sm=new Map(),xm=new Map();
  const put=(m,o)=>{const i=I(o.x,o.y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
- for(const f of G.feats)if(f.left>0||f.k==='hearth'||f.k==='bench')put(fm,f);
+ for(const f of G.feats)if(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier')put(fm,f);
  const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1,hh0=HH();
  const anc=(x,y)=>{const v=toV(x,y);return[(v[0]-v[1])*16,(v[0]+v[1])*hh0-G.hgt[I(x,y)]*16+hh0];};
  const mover=o=>{if(o._mv!==G.t||al>=1)return null;const a=anc(o._px,o._py),b=anc(o.x,o.y);return{x0:a[0],y0:a[1],x1:b[0],y1:b[1],p:al};};

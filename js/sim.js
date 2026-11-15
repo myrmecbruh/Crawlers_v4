@@ -23,6 +23,7 @@ function match(t,s){
  if(s.tool)return!!(t.it&&ITEM[t.it].tool);
  if(s.worn!=null)return!!(t.it&&ITEM[t.it].slot===s.worn);
  if(s.any)return!t.corpse;
+ if(s.card)return!!t.card;
  if(t.it||t.card||t.corpse)return false;
  if(s.m)return t.m===s.m;
  if(s.fam)return M[t.m].f===s.fam&&t.m!==19;
@@ -114,32 +115,55 @@ function pickJob(c){
 }
 // ---- expedition
 function enemyNear(c,r){let b=null,bd=r+1;for(const e of G.crit){const d=md(e,c);if(d<bd){bd=d;b=e;}}return b;}
+const isWood=t=>!t.it&&!t.card&&!t.corpse&&M[t.m].f==='wood';
+function nearCrit(c){const f=flood(c);let b=null,bd=1e9;for(const e of G.crit){if(!G.rev[I(e.x,e.y)])continue;const d=reachD(f,e.x,e.y,true);if(d>=0&&d<bd){bd=d;b=e;}}return b;}
 function partyJob(c){
  const e=G.exp;if(!e){c.party=false;return;}
- if(!c.armed){if(!c.hands[1]&&fetchJob2(c,{wpn:1}))return;c.armed=true;}
- const en=enemyNear(c,7);if(en&&setJob(c,{t:'fight',id:en.id},en.x,en.y,true))return;
+ const go=GOAL[e.goal];
+ if(!c.armed){if(!c.hands[1]&&fetchJob2(c,{wpn:1}))return;
+  if(e.goal==='reclaim'&&!c.carry.some(isWood)&&cap(c)>c.carry.length){
+   if(fetchJob(c,{fam:'wood'},'keep'))return;
+   // the wood may be on a tile someone else is at right now: wait for them, then try again
+   if(G.cols.some(d=>d!==c&&d.party&&!d.armed&&d.job&&d.job.t==='fetch')){c.job={t:'wait',n:2};return;}}
+  c.armed=true;}
+ const en=enemyNear(c,7)||(e.goal==='nest'?nearCrit(c):null);
+ if(en&&setJob(c,{t:'fight',id:en.id},en.x,en.y,true))return;
  if(jRescue(c))return;
  if(e.state==='return')return goHome(c);
- const f=flood(c),room=cap(c)-c.carry.length;
- const mem=G.cols.filter(d=>d.party&&!d.down);
+ const f=flood(c),mem=G.cols.filter(d=>d.party&&!d.down);
+ const done=why=>{e.state='return';log('The party '+why+' and turns for home.');goHome(c);};
+ let loose=0;if(go.loot)for(const k in G.tok){const p=k.split(',');if(+p[0]>=PW&&G.rev[I(+p[0],+p[1])])loose+=G.tok[k].filter(t=>match(t,go.loot)).length;}
+ if(loose>0&&cap(c)>c.carry.length&&fetchJob(c,go.loot,'keep',null,{zone:1}))return;
+ if(e.goal==='card'&&mem.some(d=>d.carry.some(t=>t.card)))return done('has what it came for');
+ if(e.goal==='reclaim'){
+  if(c.carry.some(isWood)){let bi=-1,bd=1e9;
+   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y);if(G.keep[i]||(x+y*2)%5||f.dist[i]<0||f.dist[i]>=bd||featAt(x,y))continue;bd=f.dist[i];bi=i;}
+   if(bi>=0&&setJob(c,{t:'brazier'},bi%W,Math.floor(bi/W),false))return;}
+  if(mem.some(d=>!d.armed)){c.job={t:'wait',n:2};return;}
+  if(!mem.some(d=>d.carry.some(isWood)))return done(G.feats.some(q=>q.k==='brazier')?'has lit what it carried':'has no wood to carry');
+  c.job={t:'wait',n:3};return;}
  const freeT=mem.reduce((a,d)=>a+cap(d)-d.carry.length,0);
- let loose=0;for(const k in G.tok){const p=k.split(',');if(+p[0]>=PW&&G.rev[I(+p[0],+p[1])])loose+=G.tok[k].filter(t=>!t.corpse).length;}
- if(room>0&&loose>0&&fetchJob(c,{any:1},'keep',null,{zone:1}))return;
- if(freeT>loose){let b=null,bd=1e9;
-  for(const ft of G.feats){if(ft.x<PW||ft.left<=0||!G.rev[I(ft.x,ft.y)]||rsv('f'+ft.id))continue;const d=reachD(f,ft.x,ft.y,true);if(d>=0&&d<bd){bd=d;b=ft;}}
-  if(b&&setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true))return;
-  if(!b){let bi=-1;bd=1e9;for(let y=1;y<H-1;y++)for(let x=PW;x<W-1;x++){const i=I(x,y);if(!G.rev[i]&&f.dist[i]>=0&&f.dist[i]<bd){bd=f.dist[i];bi=i;}}
-   if(bi>=0&&setJob(c,{t:'wait',n:1},bi%W,Math.floor(bi/W),false))return;
-   if(bi<0&&!G.feats.some(ft=>ft.x>=PW&&ft.left>0&&rsv('f'+ft.id))&&loose===0){e.state='return';log('The party finds nothing more and turns for home.');return goHome(c);}}
- }else if(loose===0||freeT===0){e.state='return';log('The party is laden and turns for home.');return goHome(c);}
+ if(e.goal==='ore'&&freeT<=loose){if(loose===0||freeT===0)return done('is laden');c.job={t:'wait',n:3};return;}
+ let b=null,bd=1e9;
+ for(const ft of G.feats){if(ft.x<PW||ft.left<=0||!go.feats.includes(ft.k)||!G.rev[I(ft.x,ft.y)]||rsv('f'+ft.id))continue;const d=reachD(f,ft.x,ft.y,true);if(d>=0&&d<bd){bd=d;b=ft;}}
+ if(b&&setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true))return;
+ let bi=-1;bd=1e9;for(let y=1;y<H-1;y++)for(let x=PW;x<W-1;x++){const i=I(x,y);if(!G.rev[i]&&f.dist[i]>=0&&f.dist[i]<bd){bd=f.dist[i];bi=i;}}
+ if(bi>=0&&setJob(c,{t:'wait',n:1},bi%W,Math.floor(bi/W),false))return;
+ if(!G.feats.some(ft=>ft.x>=PW&&ft.left>0&&go.feats.includes(ft.k)&&rsv('f'+ft.id))&&(loose===0||freeT===0)){
+  if(e.goal==='map')e.mapped=true;
+  return done(e.goal==='map'?'has walked it all':'finds nothing more');}
  c.job={t:'wait',n:3};
 }
 function fetchJob2(c,spec){const t=findTok(c,spec);if(!t)return false;return setJob(c,{t:'fetch',s:0,spec,to:'arm',x:t.x,y:t.y,res:['t'+t.k]},t.x,t.y,false);}
 function goHome(c){const s=stockSpot(c)||{x:24,y:24};if(!setJob(c,{t:'home'},s.x,s.y,false)){c.job={t:'wait',n:3};}}
-function sendParty(ids){
- G.exp={m:ids,goal:'ore',state:'out'};G.gateOpen=true;if(!G.zone.on)genZone();
+function sendParty(ids,goal){
+ goal=goal||'ore';if(goal==='rescue'&&G.cols.length>=6)goal='ore';
+ G.exp={m:ids,goal,state:'out'};G.gateOpen=true;if(!G.zone.on)genZone();
+ for(const k of GOAL[goal].feats)if((k==='nest'||k==='cage')&&!G.feats.some(f=>f.k===k)){scatter(k,1,70,93,4,43);
+  if(k==='nest'){const n=G.feats.find(f=>f.k==='nest');for(let i=0;i<3;i++)mkRat(n.x,n.y);}}
+ if(G.card&&G.card.k==='chart'){for(let y=0;y<H;y++)for(let x=PW;x<W;x++)G.rev[I(x,y)]=1;log('The chart shows the whole zone.');}
  for(const id of ids){const c=col(id);endJob(c);c.party=true;c.armed=false;}
- log('A party of '+ids.length+' goes out through the gate: bring ore.');
+ log('A party of '+ids.length+' goes out through the gate: '+GOAL[goal].n.toLowerCase()+'.');
 }
 function recall(){if(G.exp&&G.exp.state!=='return'){G.exp.state='return';for(const c of G.cols)if(c.party&&!(c.job&&c.job.t==='rescue'))endJob(c);log('The recall bell rings.');}}
 // ---- arriving at a job's place
@@ -154,10 +178,16 @@ function arrive(c){
  case'sleep':c.asleep=true;if(c.need.rest<=0||(!night()&&c.need.rest<=1)){if(nearFire(c))c.need.str=Math.max(0,c.need.str-1);endJob(c);}break;
  case'drop':for(const t of c.carry)addTok(c.x,c.y,t,1);c.carry=[];endJob(c);break;
  case'home':for(const t of c.carry){if(t.card){G.discard.push({k:t.card,pips:CARD[t.card].pips||0});log(c.name+' brings home a card: '+CARD[t.card].n+'.');}else addTok(c.x,c.y,t,1);}
-  c.carry=[];if(c.hands[1]){addTok(c.x,c.y,c.hands[1],1);c.hands[1]=null;}c.party=false;c.armed=false;log(c.name+' is home.');endJob(c);break;
+  c.carry=[];if(c.hands[1]){addTok(c.x,c.y,c.hands[1],1);c.hands[1]=null;}c.party=false;c.armed=false;log(c.name+' is home.');
+  {const e=G.exp;if(e&&e.goal==='map'&&e.mapped&&!e.paid){e.paid=true;G.discard.push({k:'chart',pips:2});log('The map is drawn up: a Chart card joins the deck.');}}
+  endJob(c);break;
+ case'brazier':{const i=c.carry.findIndex(isWood);if(i>=0&&!featAt(c.x,c.y)&&c.x>=PW){c.carry.splice(i,1);
+   G.feats.push({id:G.nid++,k:'brazier',x:c.x,y:c.y,life:6,left:1,grow:0});recomputeKeep();log(c.name+' lights a brazier. The ground around it is held.');}
+  endJob(c);break;}
  case'rescue':{const d=col(j.id);if(!d||!d.down){endJob(c);break;}
   if(j.s===0){d.by=c.id;j.s=1;const s=stockSpot(c)||{x:24,y:24};if(!goTo(c,s.x,s.y,false)){d.by=null;endJob(c);}}
-  else{d.by=null;d.home=true;d.downT=0;d.x=c.x;d.y=c.y;log(c.name+' carries '+d.name+' home.');endJob(c);}break;}
+  else{d.by=null;d.home=true;d.downT=0;d.x=c.x;d.y=c.y;log(c.name+' carries '+d.name+' home.');
+   if(d.captive){d.captive=false;d.down=false;log(d.name+' is freed and stays.');}endJob(c);}break;}
  case'fight':{const e=G.crit.find(e=>e.id===j.id);if(!e){endJob(c);break;}
   if(md(e,c)>1){if(!goTo(c,e.x,e.y,true))endJob(c);break;}
   attack(c,e);c.cd=1;break;}
@@ -172,7 +202,10 @@ function arrive(c){
   if(!j.w){j.w=1;c.cd=F.dur;break;}
   const tool=c.hands[0]&&c.hands[0].it===F.tool?1:0,seam=F.tool==='pick'?seamDie():0;
   const r=roll(c,F.tr,F.sk||SKILL[M[F.m].f],F.d,tool+seam,'works '+F.n);
-  if(F.card){const ks=['seam','dry','wander','seam','dry'];addTok(ft.x,ft.y,{card:ks[ri(ks.length)]});}else addTok(ft.x,ft.y,{m:F.m});
+  if(F.card){const ks=['seam','dry','wander','seam','dry'];addTok(ft.x,ft.y,{card:ks[ri(ks.length)]});}
+  else if(F.cage){if(G.cols.length<6){const d=mkCol(ft.x,ft.y);d.down=true;d.home=false;d.captive=true;d.need.hun=4;log('The cage opens. '+d.name+' cannot walk and must be carried.');}
+   if(G.exp)G.exp.state='return';}
+  else addTok(ft.x,ft.y,{m:F.m});
   ft.left--;if(ft.left<=0){if(F.grow)ft.grow=DAY*2;else G.feats=G.feats.filter(q=>q!==ft);}
   if(!r.ok){c.cd=8;j.w=0;if(ft.left>0)break;}else if(ft.left>0&&(c.party||ft.k==='tree'||ft.k==='scrap')){j.w=0;break;}
   endJob(c);if(!r.ok)c.cd=8;break;}
@@ -278,6 +311,9 @@ function dawn(){
   for(const r of res)if(c.need[r[0]]>=6&&!roll(c,r[1],null,1,0,'resists '+r[2]).ok){c.pen=1;if(r[0]!=='str')c.need.str=Math.min(6,c.need.str+1);}
   if(wounds(c)>=2&&!roll(c,2,null,1,0,'bears wounds').ok)c.pen=1;
   if(wounds(c)&&isHome(c)){const i=c.wd.findIndex(w=>w>0);c.wd[i]--;}}
+ let lost=false;for(const f of G.feats)if(f.k==='brazier'&&--f.life<=0)lost=true;
+ if(lost){G.feats=G.feats.filter(f=>!(f.k==='brazier'&&f.life<=0));recomputeKeep();log('A brazier burns out. The fog creeps back over that ground.');
+  if(!G.zone.on)forgetZone();}
  if(G.card){const d=G.card;if(CARD[d.k].pips){d.pips--;if(d.pips<=0)log(CARD[d.k].n+' is spent and leaves the deck.');else G.discard.push(d);}else G.discard.push(d);}
  if(!G.deck.length){G.deck=G.discard;G.discard=[];}
  G.card=G.deck.length?G.deck.splice(ri(G.deck.length),1)[0]:null;
@@ -293,6 +329,7 @@ function tick(){
  if(G.t%DAY===0)dawn();
  const h=hearth();if(h&&h.fuel>0)h.fuel--;
  if(season()!==3)for(const f of G.feats)if(f.grow>0&&--f.grow===0)f.left=FEAT[f.k].uses;
+ if(G.t%150===0&&G.crit.length<8){const n=G.feats.find(f=>f.k==='nest');if(n)mkRat(n.x,n.y);}
  for(const c of G.cols.slice())tickCol(c);
  for(const e of G.crit.slice())tickCrit(e);
  for(const c of G.cols)if(c.x>=PW-1)for(let dy=-5;dy<=5;dy++)for(let dx=-5;dx<=5;dx++){const x=c.x+dx,y=c.y+dy;if(x>=PW&&x<W&&y>=0&&y<H&&dx*dx+dy*dy<=27)G.rev[I(x,y)]=1;}

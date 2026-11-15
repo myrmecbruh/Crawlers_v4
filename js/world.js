@@ -33,7 +33,7 @@ function addTok(x,y,t,pref){
   (G.tok[K(tx,ty)]=G.tok[K(tx,ty)]||[]).push(t);return;}
 }
 function newGame(seed){
- G={v:1,seed,rs:seed,t:60,speed:1,vox:new Uint8Array(W*H*Z),hgt:new Uint8Array(W*H),rev:new Uint8Array(W*H),
+ G={v:1,seed,rs:seed,t:60,speed:1,vox:new Uint8Array(W*H*Z),hgt:new Uint8Array(W*H),rev:new Uint8Array(W*H),keep:new Uint8Array(W*H),
   feats:[],tok:{},stock:{},digs:{},sites:[],cols:[],crit:[],exp:null,zone:{n:0,on:false},gateOpen:false,gate:{x:47,y:24},
   deck:[],discard:[],card:null,log:[],fx:[],nid:1,sel:null,res:{},seam:false,over:false};
  for(let y=0;y<H;y++)for(let x=0;x<PW;x++){
@@ -56,27 +56,31 @@ function newGame(seed){
  G.sel=G.cols[0].id;
  log('Squatters in the ruin: three people, a pick, and a wall with one gate.');
 }
+const mkRat=(x,y)=>G.crit.push({id:G.nid++,k:'Husk-rat',x,y,tr:[1,2,1,1,1,1],sk:{Bite:1},wd:[0,0,0,0,0,0],cd:0});
 function genZone(){
  const z=G.zone;z.n++;z.on=true;const s=G.seed+z.n*977,gh=topZ(47,24);
  for(let y=0;y<H;y++)for(let x=PW;x<W;x++){
+  if(G.keep[I(x,y)])continue;
   let h=2+Math.floor(noise((x-PW)/8,y/8,s)*4.2);
   if(y===0||y===H-1||x===W-1){setCol(x,y,h+3,1,1);continue;}
   if(x<=50&&y>=23&&y<=25)h=gh; else if(x<=52&&y>=22&&y<=26)h=Math.max(gh-1,Math.min(gh+1,h));
   const n=noise(x/5,y/5,s+3);setCol(x,y,h,1,n>.7?3:n>.45?2:1);G.rev[I(x,y)]=0;
  }
  scatter('vein',8,52,93,2,45);scatter('scrap',3,52,93,2,45);scatter('glass',3,52,93,2,45);scatter('cache',1,78,93,4,43);
- for(let i=0;i<5;i++){const x=58+ri(34),y=3+ri(42);
-  G.crit.push({id:G.nid++,k:'Husk-rat',x,y,tr:[1,2,1,1,1,1],sk:{Bite:1},wd:[0,0,0,0,0,0],cd:0});}
+ for(let i=0;i<5;i++)mkRat(58+ri(34),3+ri(42));
 }
 function forgetZone(){
- for(let y=0;y<H;y++)for(let x=PW;x<W;x++){setCol(x,y,3,1,1);G.rev[I(x,y)]=0;delete G.tok[K(x,y)];}
- G.feats=G.feats.filter(f=>f.x<PW);G.crit=[];G.zone.on=false;
+ for(let y=0;y<H;y++)for(let x=PW;x<W;x++){if(G.keep[I(x,y)])continue;setCol(x,y,3,1,1);G.rev[I(x,y)]=0;delete G.tok[K(x,y)];}
+ G.feats=G.feats.filter(f=>f.x<PW||G.keep[I(f.x,f.y)]);G.crit=[];G.zone.on=false;
  log('The fog closes. What lay beyond the gate is forgotten.');
 }
+// ground lit by a brazier is kept when the zone is forgotten
+function recomputeKeep(){G.keep.fill(0);for(const f of G.feats)if(f.k==='brazier')for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){
+ const x=f.x+dx,y=f.y+dy;if(x>=PW&&x<W-1&&y>0&&y<H-1&&dx*dx+dy*dy<=10){G.keep[I(x,y)]=1;G.rev[I(x,y)]=1;}}}
 function log(s){G.log.push('D'+(day()+1)+' '+s);if(G.log.length>80)G.log.shift();}
 function b64(a){let s='';for(let i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s);}
 function unb64(s){const b=atob(s),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
-function save(){try{const o=Object.assign({},G,{vox:b64(G.vox),hgt:b64(G.hgt),rev:b64(G.rev),fx:[]});
+function save(){try{const o=Object.assign({},G,{vox:b64(G.vox),hgt:b64(G.hgt),rev:b64(G.rev),keep:b64(G.keep),fx:[]});
  localStorage.setItem('crawlers4',JSON.stringify(o,(k,v)=>k[0]==='_'?undefined:v));}catch(e){}}
 function load(){try{const s=localStorage.getItem('crawlers4');if(!s)return false;const o=JSON.parse(s);if(o.v!==1)return false;
- o.vox=unb64(o.vox);o.hgt=unb64(o.hgt);o.rev=unb64(o.rev);G=o;return true;}catch(e){return false;}}
+ o.vox=unb64(o.vox);o.hgt=unb64(o.hgt);o.rev=unb64(o.rev);o.keep=o.keep?unb64(o.keep):new Uint8Array(W*H);G=o;return true;}catch(e){return false;}}

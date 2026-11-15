@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id),panel=$('panel');
-let tool='look',tab='colony',info=null,psel={},timer=null,askNew=false;
+let tool='look',tab='colony',info=null,psel={},pgoal='ore',timer=null,askNew=false;
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const pips=(n,m,ch)=>'<span class="pp">'+(ch||'●').repeat(n)+'</span><span class="po">'+'○'.repeat(Math.max(0,m-n))+'</span>';
 const itn=t=>t?(t.card?'card':t.corpse?'body of '+t.corpse:(t.flawed?'flawed ':'')+M[t.m].n+(t.it?' '+ITEM[t.it].n.toLowerCase():'')):'–';
@@ -49,8 +49,9 @@ function tabParty(){
  let h='';const e=G.exp;
  if(!e){h+='<div class="box"><b>Send a party through the gate</b><br>';
   for(const c of G.cols)h+='<button class="tool'+(psel[c.id]?' on':'')+'"'+(c.down?' disabled':'')+' data-a="psel" data-v="'+c.id+'">'+c.name+' <span class="dim">'+wounds(c)+' wd, carries '+cap(c)+'</span></button>';
-  h+='<br>Goal: <button class="tool on">Bring ore</button><br><button class="big" data-a="send"'+(G.cols.some(c=>psel[c.id]&&!c.down)?'':' disabled')+'>Send</button><br><i>They arm themselves from the stockpile, go out, and decide the rest. A weapon in the hand is a hand that carries nothing.</i></div>';}
- else{h+='<div class="box"><b>Party is '+(e.state==='return'?'coming home':'out')+'</b><br>';
+  if(pgoal==='rescue'&&G.cols.length>=6)pgoal='ore';
+  h+='<br><b>Goal</b><br>'+Object.keys(GOAL).map(k=>'<button class="tool'+(pgoal===k?' on':'')+'"'+(k==='rescue'&&G.cols.length>=6?' disabled':'')+' data-a="pgoal" data-v="'+k+'">'+GOAL[k].n+'</button>').join('')+'<br><i>'+GOAL[pgoal].t+'</i><br><button class="big" data-a="send"'+(G.cols.some(c=>psel[c.id]&&!c.down)?'':' disabled')+'>Send</button><br><i>They arm themselves from the stockpile, go out, and decide the rest. A weapon in the hand is a hand that carries nothing.</i></div>';}
+ else{h+='<div class="box"><b>'+GOAL[e.goal].n+': party is '+(e.state==='return'?'coming home':'out')+'</b><br>';
   for(const c of G.cols)if(c.party)h+='<span class="chip">'+c.name+': '+jobName(c)+', '+c.carry.length+'/'+cap(c)+'</span>';
   h+='<br><button class="big" data-a="recall"'+(e.state==='return'?' disabled':'')+'>🔔 Recall bell</button></div>';}
  h+='<div class="box dim">Beyond the gate: '+(G.zone.on?'an open zone, '+G.crit.length+' creatures stirring.':'fog. A new place is generated each time; it is forgotten when everyone is back inside.')+'</div>';
@@ -91,8 +92,8 @@ document.addEventListener('click',e=>{
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
  else if(a==='turn')setView(cam.yaw+ +v,cam.tilt);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
- else if(a==='psel')psel[v]=!psel[v];
- else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids);psel={};}}
+ else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
+ else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}
  else if(a==='recall')recall();
  else if(a==='bill'){const p=v.split(':'),b=bench();G.sites.push({id:G.nid++,kind:'bill',it:p[0],m:+p[1],x:b.x,y:b.y,spec:{m:+p[1]},need:ITEM[p[0]].cost,have:0});}
  else if(a==='unsite'){const s=G.sites.find(s=>s.id===+v);if(s){for(let i=0;i<s.have;i++)addTok(s.x,s.y,{m:s.m});G.sites=G.sites.filter(q=>q!==s);}}

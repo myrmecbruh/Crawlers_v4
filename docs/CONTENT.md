@@ -47,8 +47,13 @@ Chute (moves a token one tile downhill per tick), Cart (carries 6 along a track)
 Later: Scrap-wight (rusted metal, slow, conductive), Blight-hound, Carrion moth, Raider (human).
 
 ## Party goals
-- Slice 1: Bring ore (return when hands and packs hold metal or stone tokens).
-- Later: Map the zone, Kill the nest, Rescue, Reclaim tiles, Find a card.
+- [gospel] Six goals: Bring ore, Map the zone, Kill the nest, Rescue, Reclaim tiles, Find a card.
+- [slop] Bring ore: mine and loot until hands and packs are full, then come home.
+- [slop] Map the zone: walk until everything reachable is seen. A full map comes home as a Chart card (2 pips: a party sent on the day it is drawn sees the whole zone).
+- [slop] Kill the nest: hunt every creature and break the nest. A standing nest breeds a rat every 150 ticks, up to 8 creatures.
+- [slop] Rescue: find the caged figure, open the cage, carry them home; they join. Not offered at 6 colonists.
+- [slop] Reclaim tiles: each member carries wood out and lights braziers. Ground within 3 tiles of a brazier is not forgotten. A brazier burns 6 days.
+- [slop] Find a card: find the sealed cache and bring back the card in it.
 
 ## Cards (slice 1 handful)
 | Card | Kind | Effect while drawn | Pips |

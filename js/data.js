@@ -54,7 +54,9 @@ const FEAT={
  vein:{n:'Iron vein',m:7,tr:0,d:2,tool:'pick',uses:3,dur:10},
  glass:{n:'Slag-glass spur',m:3,tr:0,d:2,tool:'pick',uses:2,dur:10},
  cache:{n:'Sealed cache',m:17,tr:4,d:1,sk:'Relic',uses:1,dur:10,card:1},
- hearth:{n:'Hearth'},bench:{n:'Workbench'}
+ nest:{n:'Rat nest',m:13,tr:0,d:2,sk:'Flesh',uses:2,dur:10},
+ cage:{n:'Caged figure',m:6,tr:1,d:1,sk:'Metal',uses:1,dur:10,cage:1},
+ hearth:{n:'Hearth'},bench:{n:'Workbench'},brazier:{n:'Brazier'}
 };
 const CARD={
  still:{n:'Still air',kind:'blank',t:'Nothing stirs.'},
@@ -62,6 +64,16 @@ const CARD={
  vermin:{n:'Vermin',kind:'bane',t:'One food token rots at dawn.',pips:3},
  seam:{n:'Good seam',kind:'boon',t:'First mining roll of the day gains a die.',pips:3},
  dry:{n:'Dry wood',kind:'boon',t:'Fuel burns half again as long.',pips:3},
- wander:{n:'Wanderer',kind:'arrival',t:'A stranger comes to the gate.',pips:1}
+ wander:{n:'Wanderer',kind:'arrival',t:'A stranger comes to the gate.',pips:1},
+ chart:{n:'Chart',kind:'boon',t:'A party sent today sees the whole zone.',pips:2}
+};
+// feats: what the party works; loot: which tokens it picks up. All details [slop].
+const GOAL={
+ ore:{n:'Bring ore',t:'Mine, and carry home what hands and packs can hold.',feats:['vein','scrap','glass','cache'],loot:{any:1}},
+ map:{n:'Map the zone',t:'Walk all of it. A full map comes home as a Chart card.',feats:[],loot:null},
+ nest:{n:'Kill the nest',t:'Hunt every creature and break the nest. It breeds while it stands.',feats:['nest'],loot:{any:1}},
+ rescue:{n:'Rescue',t:'Find the caged figure and carry them home to join you.',feats:['cage'],loot:null},
+ reclaim:{n:'Reclaim tiles',t:'Carry wood out and light braziers. Lit ground is not forgotten. A brazier burns 6 days.',feats:[],loot:null},
+ card:{n:'Find a card',t:'Find the sealed cache and bring back what is in it.',feats:['cache'],loot:{card:1}}
 };
 const NAMES=['Odd','Mara','Juss','Kell','Vey','Harn','Isk','Dola','Pim','Rook','Sable','Tam'];
