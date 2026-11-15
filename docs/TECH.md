@@ -22,6 +22,11 @@
 - [gospel] Characters animate walking with planted feet (no sliding) and face the way they move or work, in true isometric directions that follow the camera.
 - [slop] Two half-steps per tile; walking is drawn at about 12 frames a second, only while someone moves at 1x or 4x speed. At 16x characters step tile to tile.
 - [gospel] Voxels have ambient occlusion.
+- [gospel] Terrain is shaped in 3D but drawn in 2D: each voxel's shape comes from the voxels around it, and each column is rendered once into a cached picture and drawn as before.
+- [gospel] Each voxel keeps a fair amount of bulk, so the terrain still reads as a game grid, while flowing more naturally.
+- [slop] A voxel's top rounds off toward lower neighbours and a small skirt piles against higher ones; the middle stays flat. How far it rounds is per material (`soft`): ash 0.24 of a voxel, rubble 0.2, granite 0.13, everything else 0 (hard cubes, so ruin walls stay square).
+- [slop] The shaping is looks only: walking, digging and building still work on whole voxels.
+- [slop] Every column is a stack with no overhangs yet, so in practice a voxel is shaped by the eight columns around it. Caves and overhangs would need the picture maker extended.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 4 rows behind the point you are looking at and reaches 72% haze 22 rows further back. Shadows are three-band dark ellipses in the ambient occlusion colour.

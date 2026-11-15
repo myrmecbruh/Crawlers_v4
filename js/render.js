@@ -7,29 +7,48 @@ function toW(vx,vy){switch(cam.yaw){case 1:return[vy,H-1-vx];case 2:return[W-1-v
 function setView(yaw,tilt){const hh=HH(),w=toW((cam.x/16+cam.y/hh)/2,(cam.y/hh-cam.x/16)/2);
  cam.yaw=(yaw+4)%4;cam.tilt=tilt;const v=toV(w[0],w[1]);cam.x=(v[0]-v[1])*16;cam.y=(v[0]+v[1])*HH();redraw();}
 function lookAt(x,y){const v=toV(x,y);cam.x=(v[0]-v[1])*16;cam.y=(v[0]+v[1])*HH()-G.hgt[I(x,y)]*16;redraw();}
-const SPR={8:[],14:[]};
 function shade(hex,f){const n=parseInt(hex.slice(1),16),c=v=>Math.max(0,Math.min(255,Math.round(v*f)));
  return'rgb('+c(n>>16)+','+c(n>>8&255)+','+c(n&255)+')';}
-function mkBlock(m,hh,lv){const c=document.createElement('canvas');c.width=32;c.height=hh*2+17;const g=c.getContext('2d'),col=M[m].c;
- for(let py=0;py<hh*2+17;py++)for(let px=0;px<32;px++){
-  let f=0;const mx=px<16?px:31-px,y0=hh+Math.floor(mx*hh/16);
-  if(Math.abs(px-15.5)/16+Math.abs(py-(hh-.5))/hh<=1)f=1.12;else if(py>=y0&&py<y0+17)f=px<16?.8:.58;
-  if(!f)continue;f*=lv;if(m!==18&&hash2(px,py,m)<.14)f*=.88;
-  g.fillStyle=shade(col,f);g.fillRect(px,py,1,1);}
- return c;}
-// Higher ground is drawn lighter, so a ledge reads against the ground behind it. The owner chose this style ('tint');
-// the others (cam.elev = 'rim', 'depth', 'line') are kept only for comparison.
-// q is a brightness step: 2% each, 14 is neutral
-function blockSpr(m,hh,q){q=Math.max(0,Math.min(31,Math.round(q)));const k=m*32+q;return SPR[hh][k]||(SPR[hh][k]=mkBlock(m,hh,.72+.02*q));}
-// A pale rim along every top edge that drops away to lower ground (or nothing).
-const RIM={8:{},14:{}};
-function mkRim(hh,kind,dark){const c=document.createElement('canvas');c.width=32;c.height=hh*2;const g=c.getContext('2d'),inD=(x,y)=>Math.abs(x-15.5)/16+Math.abs(y-(hh-.5))/hh<=1;
- for(let py=0;py<hh*2;py++)for(let px=0;px<32;px++){if(!inD(px,py))continue;const L=px<16,U=py<hh;
-  if(kind!==(U?(L?'e0':'e1'):(L?'e3':'e2')))continue;
-  if(inD(px+(L?-1:1),py)&&inD(px,py+(U?-1:1)))continue;
-  g.fillStyle=dark?'rgba(8,6,4,.5)':U?'rgba(255,250,235,.3)':'rgba(255,250,235,.42)';g.fillRect(px,py,1,1);}
- return c;}
-for(const hh of[8,14])for(const k of['e0','e1','e2','e3']){RIM[hh][k]=mkRim(hh,k);RIM[hh]['d'+k]=mkRim(hh,k,1);}
+// ---- Terrain. Each column of voxels is drawn from one cached picture. The picture is computed in 3D: the column's top
+// surface is shaped by the columns around it (a rounded lip toward lower ground, a skirt piled against higher ground) and
+// then projected and lit pixel by pixel. How far a material rounds off is its `soft` value in data.js; 0 is a hard cube.
+// A flat core is always left in the middle of a voxel, so the grid stays readable. [slop] shape and light amounts
+const COLS=new Map(),RGB={};
+const rgbOf=m=>RGB[m]||(RGB[m]=[parseInt(M[m].c.slice(1,3),16),parseInt(M[m].c.slice(3,5),16),parseInt(M[m].c.slice(5,7),16)]);
+const TM=6; // pixels of headroom above a column's flat top, for skirts
+// sg: eight characters, each 0 lower, 1 level, 2 higher: neighbours at u=0, v=0, u=1, v=1, then corners (0,0) (1,0) (1,1) (0,1)
+function colSpr(hh,mt,mb,h,span,sg){
+ const key=hh+'|'+mt+'|'+mb+'|'+h+'|'+span+'|'+sg;let c=COLS.get(key);if(c)return c;
+ const Hh=TM+hh*2+span*16+1,N=32;c=document.createElement('canvas');c.width=32;c.height=Hh;
+ const g=c.getContext('2d'),img=g.createImageData(32,Hh),d=img.data;
+ const soft=M[mt].soft||0,B=soft,Bf=soft*1.3,Rf=soft*.8,s=i=>+sg[i]-1,ct=rgbOf(mt),cb=rgbOf(mb);
+ const put=(x,y,col,f)=>{if(y<0||y>=Hh)return;const i=(y*32+x)*4;d[i]=Math.min(255,col[0]*f);d[i+1]=Math.min(255,col[1]*f);d[i+2]=Math.min(255,col[2]*f);d[i+3]=255;};
+ const qr=t=>1-Math.sqrt(1-Math.min(1,t)*Math.min(1,t)); // quarter-round profile
+ const E=(u,v)=>{if(!soft)return 0;const cu=Math.max(0,Math.min(1,u)),cv=Math.max(0,Math.min(1,v));
+  // lip toward lower neighbours
+  let tu=Math.max(s(0)<0?1-cu/B:0,s(2)<0?1-(1-cu)/B:0,0),tv=Math.max(s(1)<0?1-cv/B:0,s(3)<0?1-(1-cv)/B:0,0),t=Math.hypot(tu,tv);
+  if(s(4)<0&&s(0)>=0&&s(1)>=0)t=Math.max(t,1-Math.hypot(cu,cv)/B);if(s(5)<0&&s(2)>=0&&s(1)>=0)t=Math.max(t,1-Math.hypot(1-cu,cv)/B);
+  if(s(6)<0&&s(2)>=0&&s(3)>=0)t=Math.max(t,1-Math.hypot(1-cu,1-cv)/B);if(s(7)<0&&s(0)>=0&&s(3)>=0)t=Math.max(t,1-Math.hypot(cu,1-cv)/B);
+  // skirt against higher neighbours
+  let r=Math.max(s(0)>0?1-cu/Bf:0,s(2)>0?1-(1-cu)/Bf:0,s(1)>0?1-cv/Bf:0,s(3)>0?1-(1-cv)/Bf:0,0);
+  if(s(4)>0)r=Math.max(r,1-Math.hypot(cu,cv)/Bf);if(s(5)>0)r=Math.max(r,1-Math.hypot(1-cu,cv)/Bf);
+  if(s(6)>0)r=Math.max(r,1-Math.hypot(1-cu,1-cv)/Bf);if(s(7)>0)r=Math.max(r,1-Math.hypot(cu,1-cv)/Bf);
+  return Rf*qr(r)-soft*qr(t);};
+ const lv=z=>.72+.02*Math.min(31,4+z*5); // higher is lighter
+ for(let k=0;k<=2*N-2;k++)for(let iu=Math.max(0,k-N+1);iu<=Math.min(N-1,k);iu++){
+  const iv=k-iu,u=(iu+.5)/N,v=(iv+.5)/N,e=E(u,v),x=Math.min(31,Math.floor(16+(u-v)*16)),yp=(u+v)*hh,y=TM+Math.floor(yp-e*16);
+  let f=1.12*lv(h+e);
+  if(soft){const du=Math.max(-1.2,Math.min(1.2,(E(u+.03,v)-E(u-.03,v))/.06)),dv=Math.max(-1.2,Math.min(1.2,(E(u,v+.03)-E(u,v-.03))/.06));f*=1+.09*du-.09*dv;}
+  if(hash2(x,Math.floor(yp),mt)<.14)f*=.88;
+  put(x,y,ct,f);put(x,y+1,ct,f);put(x,y+2,ct,f);
+  if(iu===N-1||iv===N-1){const right=iu===N-1,base=TM+Math.floor(yp)+span*16;
+   for(let yy=y+1;yy<=base;yy++){const dep=Math.max(0,(yy-TM-yp)/16),col=dep<1?ct:cb;
+    let ff=(right?.58:.8)*lv(h-Math.floor(dep));if(hash2(x,yy,dep<1?mt:mb)<.14)ff*=.88;put(x,yy,col,ff);}}}
+ g.putImageData(img,0,0);COLS.set(key,c);return c;
+}
+// the same picture as a flat silhouette in the fog colour
+function fogOf(c){if(c._fog)return c._fog;const o=document.createElement('canvas');o.width=c.width;o.height=c.height;const g=o.getContext('2d');
+ g.drawImage(c,0,0);g.globalCompositeOperation='source-in';g.fillStyle=FOGC;g.fillRect(0,0,o.width,o.height);return c._fog=o;}
 // Ambient occlusion: dark bands on ground next to taller voxels, and along the foot of side faces. [slop] strengths
 const AO={8:{},14:{}};
 function mkAO(hh,kind){const c=document.createElement('canvas');c.width=32;c.height=hh*2+17;const g=c.getContext('2d'),band=t=>t<.14?.36:t<.3?.2:t<.46?.09:0;
@@ -43,7 +62,7 @@ function mkAO(hh,kind){const c=document.createElement('canvas');c.width=32;c.hei
  return c;}
 for(const hh of[8,14])for(const k of['e0','e1','e2','e3','c0','c1','c2','c3','sl','sr'])AO[hh][k]=mkAO(hh,k);
 // Distance fog: ground further back than where you are looking fades into haze. [slop] colour, start and depth
-const FOGC='#262a36',FOGB={};
+const FOGC='#262a36',FOGB={}; // FOGB is no longer used for terrain
 for(const hh of[8,14]){const c=document.createElement('canvas');c.width=32;c.height=hh*2+17;const g=c.getContext('2d');g.fillStyle=FOGC;
  for(let py=0;py<hh*2+17;py++)for(let px=0;px<32;px++){const mx=px<16?px:31-px,y0=hh+Math.floor(mx*hh/16);
   if(Math.abs(px-15.5)/16+Math.abs(py-(hh-.5))/hh<=1||(py>=y0&&py<y0+17))g.fillRect(px,py,1,1);}
@@ -199,7 +218,7 @@ function draw(){
  const putM=(m,o)=>{let x=o.x,y=o.y;if(o._mv===G.t&&al<1){const a=toV(o._px,o._py),b=toV(x,y);if(a[0]+a[1]>b[0]+b[1]){x=o._px;y=o._py;}}
   const i=I(x,y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
  for(const c of G.cols)if(c.by==null)putM(cm,c);for(const e of G.crit)putM(em,e);for(const q of G.sites)put(sm,q);for(const f of G.fx)put(xm,f);
- const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,S=SPR[hh],EL=cam.elev||'tint',dgF=Math.round(cam.y/hh);
+ const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,dgF=Math.round(cam.y/hh);
  for(let dg=0;dg<VW+VH-1;dg++)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
   const vy=dg-vx,sx=(vx-vy)*16,sy=dg*hh;if(sx<vx0||sx>vx1||sy<vy0||sy>vy1)continue;
   const wp_=toW(vx,vy),x=wp_[0],y=wp_[1],i=I(x,y),h=G.hgt[i];
@@ -209,8 +228,11 @@ function draw(){
   const z0=Math.max(0,Math.min(h-1,hE,hS));
   const far=(dgF-dg)*hh/8,fa=far<=4?0:Math.min(.72,Math.round((far-4)/22*.72*12)/12);
   ctx.globalAlpha=1;
-  for(let z=z0;z<h;z++){ctx.drawImage(blockSpr(G.vox[VI(x,y,z)],hh,EL==='depth'?14+Math.max(-12,Math.min(12,dg-dgF)):EL==='tint'?4+(z+1)*5:EL==='line'?14:(z+1)*3.5),sx-16,sy-(z+1)*16);
-   if(fa){ctx.globalAlpha=fa;ctx.drawImage(FOGB[hh],sx-16,sy-(z+1)*16);ctx.globalAlpha=1;}}
+  const sv=(a,b)=>a<0||b<0||a>=VW||b>=VH?0:seen(toW(a,b)),sn=n=>n<h?'0':n>h?'2':'1';
+  const sg=sn(sv(vx-1,vy))+sn(sv(vx,vy-1))+sn(hE)+sn(hS)+sn(sv(vx-1,vy-1))+sn(sv(vx+1,vy-1))+sn(sv(vx+1,vy+1))+sn(sv(vx-1,vy+1));
+  const mt=G.vox[VI(x,y,h-1)],cs=colSpr(hh,mt,h>1?G.vox[VI(x,y,h-2)]:mt,h,h-z0,sg);
+  ctx.drawImage(cs,sx-16,sy-h*16-TM);
+  if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-16,sy-h*16-TM);}
   ctx.globalAlpha=1-fa;
   if(fog)continue;
   const ty=sy-h*16,ay=ty+hh,k=K(x,y),A=AO[hh],vh=(a,b)=>{if(a<0||b<0||a>=VW||b>=VH)return-1;const n=toW(a,b);return G.hgt[I(n[0],n[1])];};
@@ -218,8 +240,6 @@ function draw(){
   if(n0>h)ctx.drawImage(A.e0,sx-16,ty);if(n1>h)ctx.drawImage(A.e1,sx-16,ty);if(n2>h)ctx.drawImage(A.e2,sx-16,ty);if(n3>h)ctx.drawImage(A.e3,sx-16,ty);
   if(n0<=h&&n1<=h&&vh(vx-1,vy-1)>h)ctx.drawImage(A.c0,sx-16,ty);if(n2<=h&&n1<=h&&vh(vx+1,vy-1)>h)ctx.drawImage(A.c1,sx-16,ty);
   if(n2<=h&&n3<=h&&vh(vx+1,vy+1)>h)ctx.drawImage(A.c2,sx-16,ty);if(n0<=h&&n3<=h&&vh(vx-1,vy+1)>h)ctx.drawImage(A.c3,sx-16,ty);
-  const RM=RIM[hh];if(EL==='line'){if(n0<h)ctx.drawImage(RM.de0,sx-16,ty);if(n1<h)ctx.drawImage(RM.de1,sx-16,ty);if(n2<h)ctx.drawImage(RM.de2,sx-16,ty);if(n3<h)ctx.drawImage(RM.de3,sx-16,ty);}
-  else if(EL==='rim'){if(n0<h)ctx.drawImage(RM.e0,sx-16,ty);if(n1<h)ctx.drawImage(RM.e1,sx-16,ty);if(n2<h)ctx.drawImage(RM.e2,sx-16,ty);if(n3<h)ctx.drawImage(RM.e3,sx-16,ty);}
   if(n3>=0&&n3<h)ctx.drawImage(A.sl,sx-16,sy-(n3+1)*16);if(n2>=0&&n2<h)ctx.drawImage(A.sr,sx-16,sy-(n2+1)*16);
   if(G.stock[k])diamond(sx,ty,'rgba(240,192,64,.5)');
   if(G.digs[k])diamond(sx,ty,'rgba(220,60,60,.45)',1);

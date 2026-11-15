@@ -5,10 +5,10 @@ const TR=['Might','Agility','Endurance','Presence','Intellect','Willpower'];
 const TRS=['MGT','AGI','END','PRE','INT','WIL'];
 const AREA=['Head','Torso','Legs','Feet','Hands','Mantle'];
 const SEASON=['Spring','Summer','Autumn','Winter'];
-// n name, f family, h hardness, w weight, v worth, c colour, eat food value
+// n name, f family, h hardness, w weight, v worth, c colour, eat food value, soft how far a voxel of it rounds off (0 = hard cube)
 const M=[null,
- {n:'Granite',f:'stone',h:3,w:3,v:1,c:'#6b6e76'},
- {n:'Rubble',f:'stone',h:1,w:3,v:1,c:'#857c70',kw:'brittle'},
+ {n:'Granite',f:'stone',h:3,w:3,v:1,c:'#6b6e76',soft:.13},
+ {n:'Rubble',f:'stone',h:1,w:3,v:1,c:'#857c70',kw:'brittle',soft:.2},
  {n:'Slag-glass',f:'stone',h:2,w:2,v:2,c:'#3f6e6c',kw:'brittle, sharp'},
  {n:'Deadwood',f:'wood',h:1,w:1,v:1,c:'#7a5a3a',kw:'flammable'},
  {n:'Ironbark',f:'wood',h:2,w:2,v:2,c:'#4a3524',kw:'flammable'},
@@ -25,7 +25,7 @@ const M=[null,
  {n:'Meat',f:'flesh',h:1,w:2,v:1,c:'#b04848',kw:'edible, rotting',eat:3,raw:1},
  {n:'Cell',f:'relic',h:1,w:1,v:3,c:'#7fe0d0',kw:'conductive, relic, volatile'},
  {n:'Fog',f:'none',h:1,w:1,v:0,c:'#16161d'},
- {n:'Ash',f:'stone',h:1,w:1,v:0,c:'#56534f',kw:'loose'},
+ {n:'Ash',f:'stone',h:1,w:1,v:0,c:'#56534f',kw:'loose',soft:.24},
  {n:'Meal',f:'food',h:1,w:1,v:2,c:'#e0b060',kw:'edible',eat:5}
 ];
 const SKILL={stone:'Stone',wood:'Wood',metal:'Metal',fiber:'Fiber',hide:'Flesh',bone:'Flesh',flesh:'Flesh',plant:'Plant',relic:'Relic',food:'Plant'};
