@@ -13,6 +13,8 @@
 - [gospel] The settlement area is procedurally generated.
 - [gospel] Start with a small fixed plot of about 48 x 48. Each breached border generates one more chunk.
 - [slop] Generation is seeded; the same seed gives the same world.
+- [gospel] Zone edges are not square: every area has an interesting, irregular outline.
+- [slop] An outline is a wobbly blob with three lobes and one cove, ringed by wall or cliff, with a short straight neck to the gate. The settlement plot is shaped the same way. Beyond an outline there is nothing; unseen ground is not drawn.
 
 ## Borders
 - [gospel] The settlement has borders or barriers that characters dungeon-crawl into for resources.

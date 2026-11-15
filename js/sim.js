@@ -36,7 +36,7 @@ function counts(){if(G._cnt)return G._cnt;const c={fam:{},m:{},meal:0,food:0};
   const f=M[t.m].f;c.fam[f]=(c.fam[f]||0)+1;c.m[t.m]=(c.m[t.m]||0)+1;if(M[t.m].eat)c.food++;if(t.m===20)c.meal++;}}
  return G._cnt=c;}
 function passable(x,y,nx,ny){
- if(nx<0||ny<0||nx>=W||ny>=H)return false;
+ if(nx<0||ny<0||nx>=W||ny>=H||!G.hgt[ny*W+nx])return false;
  if(Math.abs(topZ(nx,ny)-topZ(x,y))>1)return false;
  if(nx===47&&ny===24&&!G.gateOpen)return false;
  return true;
@@ -159,7 +159,7 @@ function goHome(c){const s=stockSpot(c)||{x:24,y:24};if(!setJob(c,{t:'home'},s.x
 function sendParty(ids,goal){
  goal=goal||'ore';if(goal==='rescue'&&G.cols.length>=6)goal='ore';
  G.exp={m:ids,goal,state:'out'};G.gateOpen=true;if(!G.zone.on)genZone();
- for(const k of GOAL[goal].feats)if((k==='nest'||k==='cage')&&!G.feats.some(f=>f.k===k)){scatter(k,1,70,93,4,43);
+ for(const k of GOAL[goal].feats)if((k==='nest'||k==='cage')&&!G.feats.some(f=>f.k===k)){scatter(k,1,70,93,4,43);if(!G.feats.some(f=>f.k===k))scatter(k,1,56,93,2,45);
   if(k==='nest'){const n=G.feats.find(f=>f.k==='nest');for(let i=0;i<3;i++)mkRat(n.x,n.y);}}
  if(G.card&&G.card.k==='chart'){for(let y=0;y<H;y++)for(let x=PW;x<W;x++)G.rev[I(x,y)]=1;log('The chart shows the whole zone.');}
  for(const id of ids){const c=col(id);endJob(c);c.party=true;c.armed=false;}

@@ -54,7 +54,7 @@ function tabParty(){
  else{h+='<div class="box"><b>'+GOAL[e.goal].n+': party is '+(e.state==='return'?'coming home':'out')+'</b><br>';
   for(const c of G.cols)if(c.party)h+='<span class="chip">'+c.name+': '+jobName(c)+', '+c.carry.length+'/'+cap(c)+'</span>';
   h+='<br><button class="big" data-a="recall"'+(e.state==='return'?' disabled':'')+'>🔔 Recall bell</button></div>';}
- h+='<div class="box dim">Beyond the gate: '+(G.zone.on?'an open zone, '+G.crit.length+' creatures stirring.':'fog. A new place is generated each time; it is forgotten when everyone is back inside.')+'</div>';
+ h+='<div class="box dim">Beyond the gate: '+(G.zone.on?'an open zone, '+G.crit.length+' creatures stirring.':'nothing you can see. A new place, with a new shape, is generated each time; it is forgotten when everyone is back inside.')+'</div>';
  return h;
 }
 function tabCards(){const f=d=>'<span class="chip k-'+CARD[d.k].kind+'">'+CARD[d.k].n+(CARD[d.k].pips?' '+pips(d.pips,CARD[d.k].pips,'◆'):'')+'</span>';
@@ -72,7 +72,7 @@ function render(){
  const st=panel.scrollTop;panel.innerHTML=h;panel.scrollTop=st;
 }
 function tap(p){
- const k=K(p.x,p.y),inner=p.x>0&&p.x<PW-1&&p.y>0&&p.y<H-1;
+ const k=K(p.x,p.y),inner=p.x<PW&&G.mask[I(p.x,p.y)]===2&&!(p.x===47&&p.y===24);
  if(tool==='look'){const c=G.cols.find(c=>c.x===p.x&&c.y===p.y);if(c){G.sel=c.id;tab='colony';}
   const f=featAt(p.x,p.y),t=G.tok[k]||[],fog=p.x>=PW&&!G.rev[I(p.x,p.y)];
   info={x:p.x,y:p.y,t:fog?'Fog.':M[topMat(p.x,p.y)].n+' ('+M[topMat(p.x,p.y)].f+', hard '+M[topMat(p.x,p.y)].h+(M[topMat(p.x,p.y)].kw?', '+M[topMat(p.x,p.y)].kw:'')+'), height '+topZ(p.x,p.y)+(f?'. '+FEAT[f.k].n+(f.left>0?'':' (regrowing)'):'')+(t.length?'. Tokens: '+t.map(itn).join(', '):'')};}

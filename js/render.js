@@ -158,8 +158,10 @@ function draw(){
  const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,S=SPR[hh];
  for(let dg=0;dg<VW+VH-1;dg++)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
   const vy=dg-vx,sx=(vx-vy)*16,sy=dg*hh;if(sx<vx0||sx>vx1||sy<vy0||sy>vy1)continue;
-  const wp_=toW(vx,vy),x=wp_[0],y=wp_[1],i=I(x,y),h=G.hgt[i],fog=x>=PW&&!G.rev[i];
-  let hE=0,hS=0;if(vx+1<VW){const n=toW(vx+1,vy);hE=G.hgt[I(n[0],n[1])];}if(vy+1<VH){const n=toW(vx,vy+1);hS=G.hgt[I(n[0],n[1])];}
+  const wp_=toW(vx,vy),x=wp_[0],y=wp_[1],i=I(x,y),h=G.hgt[i];
+  if(!h||(x>=PW&&!G.rev[i]))continue; // void and unseen ground are not drawn at all
+  const fog=false,seen=n=>n[0]>=PW&&!G.rev[I(n[0],n[1])]?0:G.hgt[I(n[0],n[1])];
+  let hE=0,hS=0;if(vx+1<VW)hE=seen(toW(vx+1,vy));if(vy+1<VH)hS=seen(toW(vx,vy+1));
   const z0=Math.max(0,Math.min(h-1,hE,hS));
   for(let z=z0;z<h;z++)ctx.drawImage(S[fog?18:G.vox[VI(x,y,z)]],sx-16,sy-(z+1)*16);
   if(fog)continue;
@@ -188,6 +190,7 @@ function pick(px,py){
  const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H;
  for(let dg=VW+VH-2;dg>=0;dg--)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
   const w=toW(vx,dg-vx),sx=(vx-(dg-vx))*16,cy=dg*hh-G.hgt[I(w[0],w[1])]*16+hh;
+  if(!G.hgt[I(w[0],w[1])]||(w[0]>=PW&&!G.rev[I(w[0],w[1])]))continue;
   if(Math.abs(wx-sx)/16+Math.abs(wy-cy)/hh<=1)return{x:w[0],y:w[1]};}
  return null;
 }
