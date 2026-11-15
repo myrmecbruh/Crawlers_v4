@@ -28,7 +28,7 @@ function tabColony(){
   h+='<table>'+AREA.map((a,i)=>'<tr><td>'+a+'</td><td>'+itn(c.worn[i])+'</td><td class="pp">'+'✚'.repeat(c.wd[i])+'</td></tr>').join('')+
    '<tr><td>Hands</td><td>'+itn(c.hands[0])+' / '+itn(c.hands[1])+'</td><td></td></tr><tr><td>Carrying</td><td>'+(c.carry.map(itn).join(', ')||'–')+' <span class="dim">('+c.carry.length+'/'+cap(c)+')</span></td><td></td></tr></table></div>';}
  if(G.over)h+='<div class="box k-bane"><b>No one is left.</b></div>';
- h+='<div class="box">'+(askNew?'<b class="k-bane">Abandon this settlement?</b> <button data-a="new">Yes, new world</button><button data-a="keep">Keep it</button>':'<button data-a="new">New world</button> <span class="dim">Autosaves in this browser.</span>')+'</div>';
+ h+='<div class="box">'+(askNew?'<b class="k-bane">Abandon this settlement?</b> <button data-a="new">Yes, new world</button><button data-a="keep">Keep it</button>':'<button data-a="new">New world</button> <span class="dim">Autosaves in this browser.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</span>')+'</div>';
  return h;
 }
 function tabOrders(){
@@ -113,7 +113,11 @@ cv.addEventListener('pointercancel',()=>{drag=null;});
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.s=Math.max(1,Math.min(4,cam.s+(e.deltaY<0?1:-1)));redraw();},{passive:false});
 window.addEventListener('resize',fit);
 document.addEventListener('keydown',e=>{if(e.code==='KeyQ')setView(cam.yaw-1,cam.tilt);else if(e.code==='KeyE')setView(cam.yaw+1,cam.tilt);else if(e.code==='KeyR')setView(cam.yaw,cam.tilt?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){save();clearInterval(timer);timer=null;}else if(G.speed>0&&!timer)setSpeed(G.speed);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();clearInterval(timer);timer=null;}else{checkUpdate();if(G.speed>0&&!timer)setSpeed(G.speed);}});
+// When a newer version has been published, save and reload onto it. Checked every two minutes and whenever the page is shown again.
+function checkUpdate(){if(!window.VERSION)return;fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{t=t.trim();
+ if(t&&t!==window.VERSION){save();location.replace(location.pathname+'?v='+encodeURIComponent(t));}}).catch(()=>{});}
+setInterval(checkUpdate,120000);
 if(!load())newGame((Math.random()*1e9)|0);
 fit();setSpeed(G.speed||1);
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});

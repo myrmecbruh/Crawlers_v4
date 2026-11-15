@@ -32,6 +32,8 @@
 - [slop] Shapes vary by material family (a metal pick, a stone pick, a bone pick); textures vary by material (scrap is rust-patched, iron is clean). Token icons are 8 x 8.
 - [gospel] Skin, hair and eye colours are randomised per character.
 - [slop] Picked from 8 skin tones, 9 hair colours and 6 eye colours.
+- [gospel] Characters have hairstyles and beards; fewer than half have a beard.
+- [slop] Six hairstyles (cropped, long, bald, topknot, shaggy, tail). 40% have a beard: stubble, full or long.
 - [slop] Characters are layered sprites: body, six worn slots, two held items, pack tokens.
 - [slop] Material colour is applied by palette swap, not separate art per material.
 
@@ -42,6 +44,10 @@
 ## Sound
 - [gospel] Full sound, plus mood music and stingers.
 - [slop] Sound is generated or uses very short samples, to stay inside the download budget; music is sparse and can be switched off.
+
+## Updates
+- [gospel] The game refreshes itself when an update is published.
+- [slop] An open page checks every two minutes, and whenever it comes back into view; it saves first, then reloads.
 
 ## Saves
 - [gospel] Autosave to browser storage.

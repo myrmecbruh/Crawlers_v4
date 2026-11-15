@@ -94,11 +94,12 @@ function leg(hx,hy,fx,fy,col,fc,boot){const y1=Math.round(fy)-2,n=Math.max(1,y1-
 function charSpr(c,ax,ay,mv){
  // colonists from older saves have no look: derive a steady one from their id
  const lk=c.look||{skin:SKIN[c.id%SKIN.length],hair:HAIR[c.id*7%HAIR.length],eye:EYE[c.id*3%EYE.length]};
+ const hs=lk.style!=null?lk.style:c.id*5%6,bd=lk.beard!=null?lk.beard:[0,0,0,2,0,1,0,3,0,0][c.id%10];
  const skin=lk.skin,rag='#5e574c',hair=lk.hair,eye=lk.eye,mc=it=>it?M[it.m].c:null,w=c.worn;
  if(c.down||c.asleep){const b=ay+2;
   shadow(ax,ay+1,12);
   if(c.id===G.sel){ctx.strokeStyle='#f0c040';ctx.beginPath();ctx.ellipse(ax,ay+1,11,4,0,0,7);ctx.stroke();}
-  rc(ax-9,b-5,14,5,mc(w[1])||rag);rc(ax-9,b-5,5,5,mc(w[2])||rag);rc(ax+5,b-6,5,5,skin);rc(ax+8,b-7,2,6,hair);if(w[0])rc(ax+8,b-7,3,6,mc(w[0]));
+  rc(ax-9,b-5,14,5,mc(w[1])||rag);rc(ax-9,b-5,5,5,mc(w[2])||rag);rc(ax+5,b-6,5,5,skin);if(hs!==2)rc(ax+8,b-7,2,6,hair);if(w[0])rc(ax+8,b-7,3,6,mc(w[0]));
   if(c.down){rc(ax-2,b-4,3,2,'#c02020');}else{rc(ax+9,b-12,3,1,'#ccd');rc(ax+10,b-11,1,1,'#ccd');rc(ax+9,b-10,3,1,'#ccd');}return;}
  // feet: two half-steps per tile. The stance foot stays where it was put down; the other swings past it.
  let fl,fr;
@@ -137,14 +138,27 @@ function charSpr(c,ax,ay,mv){
   held(c.hands[1],X(-7,1)+sw(-6),b);arm(-6,shade(tc,.7));cuff(-6);
   legs();
   torso(1);
-  r(-3,b-29,6,7,skin);r(-3,b-30,6,2,hair);r(-3,b-29,1,5,hair);r(0,b-26,1,1,eye);r(2,b-26,1,1,eye);cap();
+  r(-3,b-29,6,7,skin);
+  // hairstyles: 0 cropped, 1 long, 2 bald, 3 topknot, 4 shaggy, 5 tail
+  if(hs===0||hs===5){r(-3,b-30,6,2,hair);r(-3,b-29,1,5,hair);if(hs===5)r(-5,b-28,2,7,hair);}
+  else if(hs===1){r(-3,b-30,6,2,hair);r(-4,b-29,2,10,hair);r(3,b-28,1,3,hair);}
+  else if(hs===3){r(-2,b-30,4,1,hair);if(!w[0])r(-1,b-33,3,3,hair);}
+  else if(hs===4){r(-4,b-31,8,3,hair);r(-4,b-28,1,4,hair);r(3,b-28,1,3,hair);}
+  r(0,b-26,1,1,eye);r(2,b-26,1,1,eye);
+  if(bd===1)r(-1,b-24,4,2,shade(skin,.78));else if(bd>=2){r(-2,b-24,5,3,hair);r(-2,b-25,1,1,hair);if(bd===3)r(-1,b-21,3,3,hair);}
+  cap();
   if(c.scars.length)r(1,b-28,1,4,'#802020');
   arm(3,shade(tc,.9));cuff(3);held(c.hands[0],X(5,1)+sw(3),b);
  }else{ // seen from behind
   held(c.hands[0],X(5,1)+sw(3),b);arm(3,shade(tc,.7));cuff(3);
   legs();
   torso(.9);
-  r(-3,b-29,6,7,skin);r(-3,b-30,5,7,hair);r(-3,b-30,6,3,hair);cap();
+  r(-3,b-29,6,7,skin);
+  if(hs===0||hs===5){r(-3,b-30,5,7,hair);r(-3,b-30,6,3,hair);if(hs===5)r(-1,b-27,2,9,hair);}
+  else if(hs===1)r(-4,b-30,7,12,hair);
+  else if(hs===3){r(-2,b-30,4,2,hair);if(!w[0])r(-1,b-33,3,3,hair);}
+  else if(hs===4)r(-4,b-31,8,9,hair);
+  cap();
   cloak(.8);pack();
   arm(-6,shade(tc,.8));cuff(-6);held(c.hands[1],X(-7,1)+sw(-6),b);
  }

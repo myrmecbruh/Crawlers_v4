@@ -48,7 +48,7 @@ function mkCol(x,y){
  const used=G.cols.map(c=>c.name),pool=NAMES.filter(n=>!used.includes(n));
  const c={id:G.nid++,name:pool[ri(pool.length)]||'Nameless',tr,sk:{},mk:{},need:{hun:0,rest:0,temp:0,str:0},
   wd:[0,0,0,0,0,0],worn:[null,null,null,null,null,null],hands:[null,null],carry:[],x,y,job:null,path:[],
-  look:{skin:SKIN[ri(SKIN.length)],hair:HAIR[ri(HAIR.length)],eye:EYE[ri(EYE.length)]},
+  look:{skin:SKIN[ri(SKIN.length)],hair:HAIR[ri(HAIR.length)],eye:EYE[ri(EYE.length)],style:ri(6),beard:(r=>r<.6?0:r<.72?1:r<.9?2:3)(R())},
   down:false,downT:0,home:false,by:null,scars:[],party:false,armed:false,cd:0,pen:0,asleep:false};
  G.cols.push(c);return c;
 }

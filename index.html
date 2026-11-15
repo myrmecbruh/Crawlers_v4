@@ -42,5 +42,10 @@ table{border-collapse:collapse;margin-top:4px}td{padding:1px 12px 1px 0;vertical
   <div id="panel"></div>
  </div>
 </div>
-<script src="js/data.js"></script><script src="js/world.js"></script><script src="js/sim.js"></script><script src="js/art.js"></script><script src="js/render.js"></script><script src="js/ui.js"></script>
+<script>
+// Load the game scripts stamped with the published version, so an update is never served from an old cache.
+(function(){var S=['data','world','sim','art','render','ui'];
+ function go(v){window.VERSION=v;var i=0;(function next(){if(i>=S.length)return;var s=document.createElement('script');s.src='js/'+S[i++]+'.js'+(v?'?v='+encodeURIComponent(v):'');s.onload=next;document.body.appendChild(s);})();}
+ fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():'';}).then(function(t){go(t.trim());},function(){go('');});})();
+</script>
 </body></html>
