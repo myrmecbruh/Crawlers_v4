@@ -37,6 +37,8 @@
 - [gospel] Expeditions are seamless: the dungeon is part of the one world and the colony keeps working on the same ticks.
 - [gospel] Areas in the fog are forgotten once the characters withdraw to the settlement.
 - [slop] "Forgotten" means the area is discarded and generated afresh on the next visit. Reclaimed tiles are kept.
+- [gospel] A party sticks together on a mission, for safety.
+- [slop] The first able member leads. The others stay within 4 tiles, work only what is within 5 tiles of the leader, and the leader waits for anyone more than 6 tiles behind. The party leaves together once all are armed, and everyone turns on an enemy that comes within 7 tiles of any member.
 - [slop] Loot is carried home as visible tokens in hands and packs; what cannot be carried is left.
 
 ## Raids (later)

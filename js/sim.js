@@ -68,7 +68,7 @@ function endJob(c){if(c.job)for(const k of c.job.res||[])if(G.res[k]===c.id)dele
 // nearest reachable token tile matching spec. o.zone: look beyond the gate; o.loose: not in stockpile
 function findTok(c,spec,o){o=o||{};const f=flood(c);let best=null,bd=1e9;
  for(const k in G.tok){const a=G.tok[k];if(!a.length||rsv('t'+k))continue;const p=k.split(','),x=+p[0],y=+p[1];
-  if(o.zone?(x<PW||!G.rev[I(x,y)]):x>=PW)continue;if(o.loose&&G.stock[k])continue;
+  if(o.zone?(x<PW||!G.rev[I(x,y)]):x>=PW)continue;if(o.loose&&G.stock[k])continue;if(o.ok&&!o.ok(x,y))continue;
   if(!a.some(t=>match(t,spec)))continue;const d=f.dist[I(x,y)];if(d>=0&&d<bd){bd=d;best={x,y,k};}}
  return best;}
 function takeTok(x,y,spec){const a=G.tok[K(x,y)];if(!a)return null;const i=a.findIndex(t=>match(t,spec));if(i<0)return null;
@@ -117,6 +117,10 @@ function pickJob(c){
 function enemyNear(c,r){let b=null,bd=r+1;for(const e of G.crit){const d=md(e,c);if(d<bd){bd=d;b=e;}}return b;}
 const isWood=t=>!t.it&&!t.card&&!t.corpse&&M[t.m].f==='wood';
 function nearCrit(c){const f=flood(c);let b=null,bd=1e9;for(const e of G.crit){if(!G.rev[I(e.x,e.y)])continue;const d=reachD(f,e.x,e.y,true);if(d>=0&&d<bd){bd=d;b=e;}}return b;}
+// true while the leader should stand and let stragglers catch up. It gives way for 15 ticks in every 60, so a member who
+// cannot reach the leader never freezes the party.
+function partyHold(c){if(G.t%60>=45)return false;const mem=G.cols.filter(d=>d.party&&!d.down);
+ return mem[0]===c&&mem.some(d=>md(d,c)>6&&!(d.job&&d.job.t==='rescue'));}
 function partyJob(c){
  const e=G.exp;if(!e){c.party=false;return;}
  const go=GOAL[e.goal];
@@ -126,27 +130,39 @@ function partyJob(c){
    // the wood may be on a tile someone else is at right now: wait for them, then try again
    if(G.cols.some(d=>d!==c&&d.party&&!d.armed&&d.job&&d.job.t==='fetch')){c.job={t:'wait',n:2};return;}}
   c.armed=true;}
- const en=enemyNear(c,7)||(e.goal==='nest'?nearCrit(c):null);
+ // The party keeps together. The first able member leads: the rest stay within a few tiles of them, work only what is near
+ // them, and everyone turns on an enemy that comes near any one of them. [slop] distances
+ const mem=G.cols.filter(d=>d.party&&!d.down),lead=mem[0],isLead=c===lead;
+ const near=(x,y)=>isLead||Math.abs(x-lead.x)+Math.abs(y-lead.y)<=5;
+ let en=enemyNear(c,7);for(const d of mem)if(!en)en=enemyNear(d,7);
+ if(!en&&e.goal==='nest'&&isLead)en=nearCrit(c);
  if(en&&setJob(c,{t:'fight',id:en.id},en.x,en.y,true))return;
  if(jRescue(c))return;
+ if(c.x<PW&&e.state!=='return'&&mem.some(d=>!d.armed)){c.job={t:'wait',n:2};return;}          // leave together
+ if(!isLead&&md(c,lead)>4&&setJob(c,{t:'wait',n:1},lead.x,lead.y,true))return;                 // catch up
+ if(partyHold(c)){c.job={t:'wait',n:2};return;}                                                // wait for stragglers
  if(e.state==='return')return goHome(c);
- const f=flood(c),mem=G.cols.filter(d=>d.party&&!d.down);
+ const f=flood(c);
  const done=why=>{e.state='return';log('The party '+why+' and turns for home.');goHome(c);};
  let loose=0;if(go.loot)for(const k in G.tok){const p=k.split(',');if(+p[0]>=PW&&G.rev[I(+p[0],+p[1])])loose+=G.tok[k].filter(t=>match(t,go.loot)).length;}
- if(loose>0&&cap(c)>c.carry.length&&fetchJob(c,go.loot,'keep',null,{zone:1}))return;
+ if(loose>0&&cap(c)>c.carry.length&&fetchJob(c,go.loot,'keep',null,{zone:1,ok:near}))return;
  if(e.goal==='card'&&mem.some(d=>d.carry.some(t=>t.card)))return done('has what it came for');
  if(e.goal==='reclaim'){
   if(c.carry.some(isWood)){let bi=-1,bd=1e9;
-   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y);if(G.keep[i]||(x+y*2)%5||f.dist[i]<0||f.dist[i]>=bd||featAt(x,y))continue;bd=f.dist[i];bi=i;}
+   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y);if(G.keep[i]||(x+y*2)%5||f.dist[i]<0||f.dist[i]>=bd||!near(x,y)||featAt(x,y))continue;bd=f.dist[i];bi=i;}
    if(bi>=0&&setJob(c,{t:'brazier'},bi%W,Math.floor(bi/W),false))return;}
+  else if(isLead&&mem.some(d=>d.carry.some(isWood))){let bi=-1,bd=1e9;
+   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y);if(G.keep[i]||(x+y*2)%5||f.dist[i]<0||f.dist[i]>=bd||featAt(x,y))continue;bd=f.dist[i];bi=i;}
+   if(bi>=0&&bd>1&&setJob(c,{t:'wait',n:2},bi%W,Math.floor(bi/W),true))return;}
   if(mem.some(d=>!d.armed)){c.job={t:'wait',n:2};return;}
   if(!mem.some(d=>d.carry.some(isWood)))return done(G.feats.some(q=>q.k==='brazier')?'has lit what it carried':'has no wood to carry');
   c.job={t:'wait',n:3};return;}
  const freeT=mem.reduce((a,d)=>a+cap(d)-d.carry.length,0);
  if(e.goal==='ore'&&freeT<=loose){if(loose===0||freeT===0)return done('is laden');c.job={t:'wait',n:3};return;}
  let b=null,bd=1e9;
- for(const ft of G.feats){if(ft.x<PW||ft.left<=0||!go.feats.includes(ft.k)||!G.rev[I(ft.x,ft.y)]||rsv('f'+ft.id))continue;const d=reachD(f,ft.x,ft.y,true);if(d>=0&&d<bd){bd=d;b=ft;}}
+ for(const ft of G.feats){if(ft.x<PW||ft.left<=0||!go.feats.includes(ft.k)||!G.rev[I(ft.x,ft.y)]||!near(ft.x,ft.y)||rsv('f'+ft.id))continue;const d=reachD(f,ft.x,ft.y,true);if(d>=0&&d<bd){bd=d;b=ft;}}
  if(b&&setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true))return;
+ if(!isLead){c.job={t:'wait',n:2};return;} // only the leader explores and decides when to go home
  let bi=-1;bd=1e9;for(let y=1;y<H-1;y++)for(let x=PW;x<W-1;x++){const i=I(x,y);if(!G.rev[i]&&f.dist[i]>=0&&f.dist[i]<bd){bd=f.dist[i];bi=i;}}
  if(bi>=0&&setJob(c,{t:'wait',n:1},bi%W,Math.floor(bi/W),false))return;
  if(!G.feats.some(ft=>ft.x>=PW&&ft.left>0&&go.feats.includes(ft.k)&&rsv('f'+ft.id))&&(loose===0||freeT===0)){
@@ -282,11 +298,12 @@ function tickCol(c){
    log(c.name+' rises, scarred: '+TR[s]+' rolls now need a 6.');}
   return;}
  if(c.cd>0){c.cd--;return;}
- if(c.job&&c.x>=PW&&c.job.t!=='fight'&&c.job.t!=='rescue'&&enemyNear(c,3))endJob(c);
+ if(c.job&&c.x>=PW&&c.job.t!=='fight'&&c.job.t!=='rescue'&&(enemyNear(c,3)||(c.party&&G.cols.some(d=>d.party&&d.job&&d.job.t==='fight'))))endJob(c);
  if(!c.job)pickJob(c);
  if(!c.job)return;
  if(c.path.length){
   if((c.wd[2]||c.wd[3])&&t%2)return;
+  if(c.party&&c.x>=PW-1&&c.job.t!=='fight'&&c.job.t!=='rescue'&&partyHold(c))return;
   const i=c.path.shift(),x=i%W,y=(i-x)/W;
   if(!passable(c.x,c.y,x,y)){endJob(c);return;}
   c._px=c.x;c._py=c.y;c._mv=G.t;c.face=dirOf(x-c.x,y-c.y);c.x=x;c.y=y;return;}
