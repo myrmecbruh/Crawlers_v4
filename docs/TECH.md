@@ -21,6 +21,7 @@
 ## Art
 - [gospel] Isometric pixel art. One voxel is a 32 px wide tile (32 x 16 diamond top); characters about 24 x 40.
 - [gospel] Low-resolution pixel 3D: the real 3D scene is rendered small, one canvas pixel per game pixel, and scaled up with crisp pixels, flat-shaded, so it still reads as pixel art. The scale is unchanged: a tile is 32 px wide, a voxel 16 px tall.
+- [gospel] The page never zooms on mobile: no double-tap zoom, no pinch zoom of the page.
 - [gospel] The view stays pixel perfect while scrolling.
 - [slop] One game pixel always covers a whole number of physical screen pixels (zoom levels are rounded to fit the screen), and the world is shifted by under a pixel each frame so its grid lands on whole pixels wherever the camera stops.
 - [gospel] The camera orbits freely around the point you look at, at a fixed isometric pitch, with a second, steeper pitch. (Earlier: quarter turns only.)

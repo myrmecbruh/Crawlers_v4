@@ -125,6 +125,13 @@ function tap(p){
 // A button acts the moment the finger or mouse button comes up on it, so a panel redrawn by a fast tick between press and
 // release cannot swallow the tap. The browser's own click that follows is then ignored; a click with no press before it
 // (a key press on a focused button) still works.
+// No zooming the page on mobile: no double-tap zoom, no pinch zoom (iPhones ignore the viewport setting, so they are
+// stopped here as well). Map zoom stays on the − and + buttons and the mouse wheel.
+let lastTouch=0;
+document.addEventListener('touchend',e=>{const n=performance.now();if(n-lastTouch<350)e.preventDefault();lastTouch=n;},{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+for(const ev of['gesturestart','gesturechange','gestureend'])document.addEventListener(ev,e=>e.preventDefault(),{passive:false});
+document.addEventListener('touchmove',e=>{if(e.touches.length>1&&!e.target.closest('#cv'))e.preventDefault();},{passive:false});
 let press=null,skipClick=0;
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-a]');press=el&&!el.disabled?{a:el.dataset.a,v:el.dataset.v,x:e.clientX,y:e.clientY}:null;if(press)el.classList.add('press');});
 const unpress=()=>document.querySelectorAll('.press').forEach(b=>b.classList.remove('press'));
