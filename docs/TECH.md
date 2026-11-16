@@ -59,6 +59,8 @@
 - [slop] Material colour is applied by palette swap, not separate art per material.
 
 ## Screen
+- [gospel] The interface uses the 'small' font from the first Crawlers game: Tiny5 (SIL Open Font License).
+- [slop] Always at 16 px in the panels (two screen pixels per font pixel) and 8 px for labels on the map (one game pixel per font pixel), so it stays crisp.
 - [gospel] All lists, controls, buttons and clickable things keep a locked size and place: the interface must never move while someone is trying to tap it.
 - [slop] How: every box has a fixed height (long text is cut or scrolls inside it), lists keep a slot for every possible entry (six colonist slots, every material on the workbench), and buttons are disabled rather than hidden. The camera bar is one fixed row; the date sits on its own line below it.
 - [gospel] Buttons flash when tapped, as feedback.

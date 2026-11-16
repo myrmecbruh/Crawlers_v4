@@ -452,7 +452,7 @@ function draw_(){
  for(const c of G.cols){if(c.by!=null)continue;const g=groups[K_(c.x,c.y)],n=g.indexOf(c),off=n*5-(g.length-1)*2,P=pos(c);
   const s=paint(DYN,56,54,28,44,(ax,ay)=>{if(P.a){const dx=P.b[0]-P.a[0],dy_=P.b[1]-P.a[1],p=P.p;charSpr(c,0,0,{x0:ax-dx*p,y0:ay-dy_*p,x1:ax+dx*(1-p),y1:ay+dy_*(1-p),p});}else charSpr(c,ax,ay,null);});
   if(s){quad(dy,s,P.x,P.y,P.z,off);const keep=SHL;SHL=null;quad(gh,s,P.x,P.y,P.z,off);SHL=keep;}}
- for(const q of G.pops||[]){if(!seenAt(q.x,q.y))continue;const w=Math.min(90,6+q.t.length*5),e=paint(DYN,w,10,0,0,(ax,ay)=>{ctx.font='8px monospace';ctx.textBaseline='top';ctx.fillStyle='#000';ctx.fillText(q.t,ax+1,ay+2);ctx.fillStyle=q.c;ctx.fillText(q.t,ax,ay+1);});
+ for(const q of G.pops||[]){if(!seenAt(q.x,q.y))continue;const w=Math.min(90,6+q.t.length*5),e=paint(DYN,w,10,0,0,(ax,ay)=>{ctx.font="8px 'Tiny5',monospace";ctx.textBaseline='top';ctx.fillStyle='#000';ctx.fillText(q.t,ax+1,ay+2);ctx.fillStyle=q.c;ctx.fillText(q.t,ax,ay+1);});
   if(e){e.ay=30+(4-q.ttl)*5;quad(ov,e,q.x+.5,q.y+.5,q.z,-w/2);}}
  for(const f of G.fx){const w=f.dice.length*8,e=paint(DYN,w,8,0,0,(ax,ay)=>{for(let n=0;n<f.dice.length;n++)dieSpr(ax+n*8,ay,f.dice[n],f.dice[n]>=f.tgt);});
   if(e){e.ay=44;quad(ov,e,f.x+.5,f.y+.5,top(f.x,f.y),-w/2);}}

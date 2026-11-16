@@ -23,7 +23,7 @@ function tabColony(){
  const n=counts(),st=Object.keys(n.m).map(m=>'<span class="chip tk"><i style="background:'+M[m].c+'"></i>'+M[m].n+' <b>'+n.m[m]+'</b></span>').join('');
  const og=openGoals();let gh='<div class="line"><b>Goals</b> <span class="dim">'+(G.gdone||[]).length+'/'+GOALS.length+' done · renown '+(G.renown||0)+'</span></div>';
  for(let s_=0;s_<3;s_++){const i=og[s_];gh+='<div class="goal">'+(i==null?'<i>All goals done.</i>':'<b>'+GOALS[i].n+'</b> <span class="dim">'+GOALS[i].t+'</span><br><span class="pp">reward: '+GOALS[i].r+'</span>')+'</div>';}
- h+='<div class="box" style="height:150px">'+gh+'</div>';
+ h+='<div class="box" style="height:174px">'+gh+'</div>';
  h+=box('<b>Tokens in the plot</b><br>'+(st||'<i>none</i>'),'86px','scroll');
  for(let s_=0;s_<MAXC;s_++){const c=G.cols[s_];
   if(!c){h+='<button class="row" disabled><span class="dim">—</span><br>&nbsp;</button>';continue;}const q=c.need;
@@ -187,6 +187,7 @@ setInterval(checkUpdate,120000);
 // The world is only drawn when something changes, so an idle game shows 0 fps.
 setInterval(()=>{$('fps').textContent=FPS.n+' fps'+(FPS.n?' · '+(FPS.ms/FPS.n).toFixed(1)+' ms':'');FPS.n=0;FPS.ms=0;},1000);
 // Every load starts a new world: opening the link, refreshing, and the automatic reload after an update.
+if(document.fonts&&document.fonts.load)document.fonts.load("8px 'Tiny5'").then(()=>{ATL.map.clear();redraw();}).catch(()=>{});
 newGame((Math.random()*1e9)|0);
 // the camera looks at the camp: the middle of the stockpile
 function goHomeView(){const ks=Object.keys(G.stock);let x=24,y=24;if(ks.length){x=0;y=0;for(const k of ks){const p=k.split(',');x+=+p[0];y+=+p[1];}x=Math.round(x/ks.length);y=Math.round(y/ks.length);}lookAt(x,y);}
