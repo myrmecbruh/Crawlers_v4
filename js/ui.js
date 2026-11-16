@@ -28,7 +28,7 @@ function tabColony(){
   h+='<table>'+AREA.map((a,i)=>'<tr><td>'+a+'</td><td>'+itn(c.worn[i])+'</td><td class="pp">'+'✚'.repeat(c.wd[i])+'</td></tr>').join('')+
    '<tr><td>Hands</td><td>'+itn(c.hands[0])+' / '+itn(c.hands[1])+'</td><td></td></tr><tr><td>Carrying</td><td>'+(c.carry.map(itn).join(', ')||'–')+' <span class="dim">('+c.carry.length+'/'+cap(c)+')</span></td><td></td></tr></table></div>';}
  if(G.over)h+='<div class="box k-bane"><b>No one is left.</b></div>';
- h+='<div class="box">'+(askNew?'<b class="k-bane">Abandon this settlement?</b> <button data-a="new">Yes, new world</button><button data-a="keep">Keep it</button>':'<button data-a="new">New world</button> <span class="dim">Opening the link starts a new game; updates keep this one.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</span>')+'</div>';
+ h+='<div class="box">'+(askNew?'<b class="k-bane">Abandon this settlement?</b> <button data-a="new">Yes, new world</button><button data-a="keep">Keep it</button>':'<button data-a="new">New world</button> <span class="dim">Every load and every update starts a new world.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</span>')+'</div>';
  return h;
 }
 function tabOrders(){
@@ -127,7 +127,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){save();cle
 function checkUpdate(){if(!window.VERSION)return;fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{t=t.trim();
  if(t&&t!==window.VERSION){save();location.replace(location.pathname+'?v='+encodeURIComponent(t));}}).catch(()=>{});}
 setInterval(checkUpdate,120000);
-// Opening the link always starts a new game. Only the reload after an update (its address carries ?v=) picks up the save.
-if(!/[?&]v=/.test(location.search)||!load())newGame((Math.random()*1e9)|0);
+// Every load starts a new world: opening the link, refreshing, and the automatic reload after an update.
+newGame((Math.random()*1e9)|0);
 fit();setSpeed(G.speed||1);
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
