@@ -28,6 +28,12 @@
 - [gospel] All three scenarios are available from the start.
 - [slop] A new game picks a starting scenario. The scenario sets the starting colonists, tokens, plot and first event cards. It does not change the rules.
 
+## Fun (2026-11-16)
+- [gospel] First priorities for fun: raids with a threat track, goals and progression, juice and feedback.
+- [gospel] You can play actively, but it is not necessary.
+- [slop] So the colony looks after itself, defends itself in a raid and works towards goals unaided; the player makes it go better.
+- [slop] Goals: a fixed ladder of 13 milestones, three shown at a time (hearth, workbench, a tool, a full larder, ore, arms for everyone, a trap, a survived raid, a mapped zone, iron, a broken nest, a winter, six colonists). Each pays a reward (a card, tokens or a stronger gate) and renown; renown grows with later goals.
+
 ## Player role
 - [gospel] The colony is controlled indirectly: it runs itself.
 - [gospel] The player assembles parties and sends them into the dungeon.

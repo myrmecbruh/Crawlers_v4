@@ -21,6 +21,9 @@ function tabColony(){
  let h='';const cd=G.card;
  h+=box('<b>Card of the day</b> '+(cd?'<span class="k-'+CARD[cd.k].kind+'">'+CARD[cd.k].n+'</span> '+(CARD[cd.k].pips?pips(cd.pips,CARD[cd.k].pips,'◆'):'')+'<br><i>'+CARD[cd.k].t+'</i>':'<i>none drawn yet</i>'),'58px','clip');
  const n=counts(),st=Object.keys(n.m).map(m=>'<span class="chip tk"><i style="background:'+M[m].c+'"></i>'+M[m].n+' <b>'+n.m[m]+'</b></span>').join('');
+ const og=openGoals();let gh='<div class="line"><b>Goals</b> <span class="dim">'+(G.gdone||[]).length+'/'+GOALS.length+' done · renown '+(G.renown||0)+'</span></div>';
+ for(let s_=0;s_<3;s_++){const i=og[s_];gh+='<div class="goal">'+(i==null?'<i>All goals done.</i>':'<b>'+GOALS[i].n+'</b> <span class="dim">'+GOALS[i].t+'</span><br><span class="pp">reward: '+GOALS[i].r+'</span>')+'</div>';}
+ h+='<div class="box" style="height:150px">'+gh+'</div>';
  h+=box('<b>Tokens in the plot</b><br>'+(st||'<i>none</i>'),'86px','scroll');
  for(let s_=0;s_<MAXC;s_++){const c=G.cols[s_];
   if(!c){h+='<button class="row" disabled><span class="dim">—</span><br>&nbsp;</button>';continue;}const q=c.need;
@@ -40,10 +43,8 @@ function tabColony(){
  h+='<div class="dim small">Every load and every update starts a new world.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</div>';
  return h;
 }
-const TOOLS=[['look','Look'],['dig','Dig'],['place','Place'],['stock','Stock'],['hearth','Hearth'],['bench','Bench'],['cancel','Cancel']];
-const HINT={look:'Tap a tile or a person to inspect.',dig:'Tap any rock to mark that voxel for digging: the top of a tile, or the side of a wall or outcrop to tunnel into it. Tap again to unmark.',place:'Place stone: tap a tile to have a stone token set on it as a voxel.',stock:'Stockpile: tap tiles to add or remove stockpile ground.',hearth:'Hearth: tap a tile. Needs 2 stone tokens; burns wood for warmth and cooks.',bench:'Workbench: tap a tile. Needs 2 wood tokens; makes tools and gear.',cancel:'Tap a marked tile to clear the order.'};
-// how many of an item exist: lying in the plot, worn or held
-function owned(k){let n=0;for(const q in G.tok)for(const t of G.tok[q])if(t.it===k)n++;for(const c of G.cols)for(const t of c.worn.concat(c.hands))if(t&&t.it===k)n++;return n;}
+const TOOLS=[['look','Look'],['dig','Dig'],['place','Place'],['stock','Stock'],['hearth','Hearth'],['bench','Bench'],['trap','Trap'],['cancel','Cancel']];
+const HINT={trap:'Trap: tap a tile. Needs 1 metal token. A raider stepping on it may be badly hurt; it is spent either way.',look:'Tap a tile or a person to inspect.',dig:'Tap any rock to mark that voxel for digging: the top of a tile, or the side of a wall or outcrop to tunnel into it. Tap again to unmark.',place:'Place stone: tap a tile to have a stone token set on it as a voxel.',stock:'Stockpile: tap tiles to add or remove stockpile ground.',hearth:'Hearth: tap a tile. Needs 2 stone tokens; burns wood for warmth and cooks.',bench:'Workbench: tap a tile. Needs 2 wood tokens; makes tools and gear.',cancel:'Tap a marked tile to clear the order.'};
 // every material an item could be made of, whether or not there is any: the buttons stay put
 const MATS=k=>{const r=[];for(let m=1;m<M.length;m++)if(ITEM[k].fam.includes(M[m].f)&&m!==18&&m!==19&&m!==20)r.push(m);return r;};
 function tabOrders(){
@@ -89,6 +90,8 @@ function tabCards(){
  return h;}
 function tabLog(){return'<div class="box log">'+G.log.slice().reverse().map(l=>'<div'+(/FAIL|DOWN|dies|wounded/.test(l)?' class="k-bane"':'')+'>'+esc(l)+'</div>').join('')+'</div>';}
 function render(){
+ $('thr').innerHTML='Threat '+Array.from({length:THREAT_MAX},(_,i)=>'<span class="t'+(i<Math.floor(G.threat||0)?' f':'')+'"></span>').join('')+' '+(G.raid?'<b style="color:#e04040">RAID</b>':Math.floor(G.threat||0)+'/'+THREAT_MAX)+' · renown '+(G.renown||0);
+ $('snd').classList.toggle('on',SND.on);
  $('dtxt').textContent=SEASON[season()]+' '+(day()%6+1)+', year '+(Math.floor(day()/24)+1)+' · '+(night()?'night':tod()<60?'morning':tod()<120?'midday':'evening');
  $('tilt').classList.toggle('on',!!cam.tilt);
  document.querySelectorAll('#spd button').forEach(b=>b.classList.toggle('on',+b.dataset.v===G.speed));
@@ -110,6 +113,7 @@ function tap(p){
  else if(tool==='cancel'){for(const dk in G.digs)if(dk.startsWith(k+','))delete G.digs[dk];G.sites=G.sites.filter(s=>!(s.x===p.x&&s.y===p.y&&s.kind!=='bill'));}
  else if(!G.sites.some(s=>s.x===p.x&&s.y===p.y)&&!featAt(p.x,p.y)){
   if(tool==='place')G.sites.push({id:G.nid++,kind:'voxel',x:p.x,y:p.y,spec:{fam:'stone'},need:1,have:0,m:0});
+  else if(tool==='trap')G.sites.push({id:G.nid++,kind:'trap',x:p.x,y:p.y,spec:{fam:'metal'},need:1,have:0,m:0});
   else if(!G.feats.some(f=>f.k===tool)&&!G.sites.some(s=>s.kind===tool))G.sites.push({id:G.nid++,kind:tool,x:p.x,y:p.y,spec:{fam:tool==='hearth'?'stone':'wood'},need:2,have:0,m:0});
   else info={x:p.x,y:p.y,t:'Only one '+tool+' in this prototype.'};}
  render();redraw();
@@ -122,7 +126,7 @@ document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-a]'
 const unpress=()=>document.querySelectorAll('.press').forEach(b=>b.classList.remove('press'));
 document.addEventListener('pointercancel',()=>{press=null;unpress();});
 // flash the button that acted (found again by what it does, in case the panel was redrawn)
-function flash(a,v){unpress();const b=document.querySelector('[data-a="'+a+'"]'+(v!=null?'[data-v="'+v+'"]':''));if(!b)return;b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');setTimeout(()=>b.classList.remove('flash'),260);}
+function flash(a,v){unpress();if(SFX&&SND.ctx)SFX.tap();const b=document.querySelector('[data-a="'+a+'"]'+(v!=null?'[data-v="'+v+'"]':''));if(!b)return;b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');setTimeout(()=>b.classList.remove('flash'),260);}
 document.addEventListener('pointerup',e=>{const p=press;press=null;if(!p||Math.hypot(e.clientX-p.x,e.clientY-p.y)>12){unpress();return;}
  const el=document.elementFromPoint(e.clientX,e.clientY),b=el&&el.closest('[data-a]');if(b&&(b.disabled||b.dataset.a!==p.a||b.dataset.v!==p.v))return;
  skipClick=performance.now()+600;act(p.a,p.v);setTimeout(()=>flash(p.a,p.v),15);}); // after the panel is redrawn
@@ -132,7 +136,7 @@ function act(a,v){
  if(a==='tab')tab=v;else if(a==='tool'){tool=v;info=null;}else if(a==='sel')G.sel=G.sel===+v?null:+v;
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
- else if(a==='home')goHomeView();
+ else if(a==='home')goHomeView();else if(a==='sound')sndToggle();
  else if(a==='turn')setView(Math.round((cam.yaw+ +v*.5)*2)/2,cam.tilt);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}

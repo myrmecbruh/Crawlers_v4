@@ -254,6 +254,7 @@ function featSpr(f,ax,ay){
  case'nest':rc(ax-8,ay-4,16,6,'#4a3c30');rc(ax-6,ay-7,12,4,'#5a4a3a');rc(ax-2,ay-5,5,3,'#15110e');rc(ax-7,ay-8,2,2,'#d8d0b8');rc(ax+4,ay-9,3,1,'#d8d0b8');rc(ax+6,ay-3,2,1,'#d8d0b8');break;
  case'cage':rc(ax-6,ay-20,12,2,'#7a4a34');rc(ax-6,ay,12,2,'#7a4a34');for(let i=-6;i<=5;i+=3)rc(ax+i,ay-18,1,18,'#9a5a3c');rc(ax-2,ay-6,5,5,'#5e574c');rc(ax-1,ay-10,3,4,'#c9a183');break;
  case'brazier':rc(ax-1,ay-6,2,8,'#3a3a44');rc(ax-4,ay-9,8,3,'#55555f');rc(ax-3,ay-13,6,4,'#e07020');rc(ax-2,ay-16,3,4,'#f0c040');rc(ax+1,ay-14,1,2,'#f0c040');break;
+ case'trap':rc(ax-7,ay-1,14,3,'#3a3a44');for(let i=-6;i<=5;i+=3){rc(ax+i,ay-5,1,4,'#aab3bd');rc(ax+i,ay-6,1,1,'#e8eef4');}break;
  case'hearth':{const c=M[f.m].c;rc(ax-8,ay-3,16,6,shade(c,.7));rc(ax-6,ay-5,12,3,c);
   if(f.fuel>0){rc(ax-3,ay-10,6,6,'#e07020');rc(ax-2,ay-13,3,4,'#f0c040');rc(ax+1,ay-11,2,2,'#f0c040');}else rc(ax-3,ay-6,6,2,'#222');break;}
  case'bench':{const c=M[f.m].c;rc(ax-9,ay-9,18,3,c);rc(ax-8,ay-6,2,8,shade(c,.7));rc(ax+6,ay-6,2,8,shade(c,.7));rc(ax-4,ay-11,4,2,'#aab3bd');break;}
@@ -376,7 +377,7 @@ function decal(out,x,y,z,r,g,b,a){const zz=z+.04;for(const [u,v] of[[0,0],[1,0],
 let dirty=false; // true while a frame is already asked for
 function redraw(){if(dirty)return;dirty=true;requestAnimationFrame(draw);}
 function fit(){redraw();}
-const FSH={tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
+const FSH={trap:7,tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
 function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(o))rc(ex-2,ey-4,2,2,'#d02020');}
 const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
 const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
@@ -420,16 +421,20 @@ function draw_(){
   const key='t'+HH()+ff+a.map(tkey).join(',');
   const e=stat(key,42,34,18,24,(ax,ay)=>{const nc=Math.min(3,a.length);shadow(ax-13+nc*4.5,ay+3+ff,3+nc*4);for(let n=0;n<a.length;n++)tokSpr(a[n],ax-13+(n%3)*9,ay-4-Math.floor(n/3)*8+ff);});
   quad(st,e,x+.5,y+.5,z);}
- if(!G.gateOpen&&G.gateZ!=null){const e=paint(DYN,18,26,9,24,(ax,ay)=>{rc(ax-8,ay-22,16,24,'#3a2c20');rc(ax-8,ay-12,16,2,'#aab3bd');});if(e)quad(dy,e,47.5,24.5,G.gateZ);}
+ if(!G.gateOpen&&!G.gateBroken&&G.gateZ!=null){const e=paint(DYN,18,26,9,24,(ax,ay)=>{rc(ax-8,ay-22,16,24,'#3a2c20');rc(ax-8,ay-12,16,2,'#aab3bd');});if(e)quad(dy,e,47.5,24.5,G.gateZ);}
  // moving things stand between the tile they left and the one they are entering
  const pos=o=>{if(o._mv===G.t&&al<1&&o._px!=null){const pz=o._pz!=null?o._pz:top(o._px,o._py),z=o.z!=null?o.z:top(o.x,o.y);
    return{x:o._px+.5+(o.x-o._px)*al,y:o._py+.5+(o.y-o._py)*al,z:pz+(z-pz)*al,a:proj(K,o._px+.5,o._py+.5,pz),b:proj(K,o.x+.5,o.y+.5,z),p:al};}
   return{x:o.x+.5,y:o.y+.5,z:o.z!=null?o.z:top(o.x,o.y)};};
- for(const e of G.crit){if(!seenAt(e.x,e.y))continue;const P=pos(e),s=paint(DYN,24,16,12,11,(ax,ay)=>{let ex=ax,ey=ay;if(P.a)ey-=(P.p*4%2<1?1:0);ratSpr(e,ex,ey);});if(s)quad(dy,s,P.x,P.y,P.z);}
+ for(const e of G.crit){if(!seenAt(e.x,e.y))continue;const P=pos(e);
+  if(e.raider){const s=paint(DYN,56,54,28,44,(ax,ay)=>{if(P.a){const dx=P.b[0]-P.a[0],dy_=P.b[1]-P.a[1],p=P.p;charSpr(e,0,0,{x0:ax-dx*p,y0:ay-dy_*p,x1:ax+dx*(1-p),y1:ay+dy_*(1-p),p});}else charSpr(e,ax,ay,null);});if(s)quad(dy,s,P.x,P.y,P.z);continue;}
+  const s=paint(DYN,24,16,12,11,(ax,ay)=>{let ex=ax,ey=ay;if(P.a)ey-=(P.p*4%2<1?1:0);ratSpr(e,ex,ey);});if(s)quad(dy,s,P.x,P.y,P.z);}
  const groups={};for(const c of G.cols)if(c.by==null)(groups[K_(c.x,c.y)]=groups[K_(c.x,c.y)]||[]).push(c);
  for(const c of G.cols){if(c.by!=null)continue;const g=groups[K_(c.x,c.y)],n=g.indexOf(c),off=n*5-(g.length-1)*2,P=pos(c);
   const s=paint(DYN,56,54,28,44,(ax,ay)=>{if(P.a){const dx=P.b[0]-P.a[0],dy_=P.b[1]-P.a[1],p=P.p;charSpr(c,0,0,{x0:ax-dx*p,y0:ay-dy_*p,x1:ax+dx*(1-p),y1:ay+dy_*(1-p),p});}else charSpr(c,ax,ay,null);});
   if(s){quad(dy,s,P.x,P.y,P.z,off);const keep=SHL;SHL=null;quad(gh,s,P.x,P.y,P.z,off);SHL=keep;}}
+ for(const q of G.pops||[]){if(!seenAt(q.x,q.y))continue;const w=Math.min(90,6+q.t.length*5),e=paint(DYN,w,10,0,0,(ax,ay)=>{ctx.font='8px monospace';ctx.textBaseline='top';ctx.fillStyle='#000';ctx.fillText(q.t,ax+1,ay+2);ctx.fillStyle=q.c;ctx.fillText(q.t,ax,ay+1);});
+  if(e){e.ay=30+(4-q.ttl)*5;quad(ov,e,q.x+.5,q.y+.5,q.z,-w/2);}}
  for(const f of G.fx){const w=f.dice.length*8,e=paint(DYN,w,8,0,0,(ax,ay)=>{for(let n=0;n<f.dice.length;n++)dieSpr(ax+n*8,ay,f.dice[n],f.dice[n]>=f.tgt);});
   if(e){e.ay=44;quad(ov,e,f.x+.5,f.y+.5,top(f.x,f.y),-w/2);}}
  // markers on the ground

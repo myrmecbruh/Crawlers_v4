@@ -101,7 +101,8 @@ function addTok(x,y,t,pref,z){
 function newGame(seed){
  G={v:1,seed,rs:seed,t:60,speed:1,vox:new Uint8Array(W*H*Z),hgt:new Uint8Array(W*H),rev:new Uint8Array(W*H),keep:new Uint8Array(W*H),mask:new Uint8Array(W*H),
   feats:[],tok:{},stock:{},digs:{},sites:[],cols:[],crit:[],exp:null,zone:{n:0,on:false},gateOpen:false,gate:{x:47,y:24},
-  deck:[],discard:[],card:null,log:[],fx:[],nid:1,sel:null,res:{},seam:false,over:false};
+  deck:[],discard:[],card:null,log:[],fx:[],nid:1,sel:null,res:{},seam:false,over:false,
+  threat:0,raids:0,raid:null,gateMax:6,gateBroken:false,gdone:[],renown:0,pops:[],stats:{ore:0,maps:0,nests:0,raids:0,kills:0}};
  markAll();shapeRegion(0,PW-1,24,24,21,seed+31);
  for(let y=0;y<H;y++)for(let x=0;x<PW;x++){
   const h=2+Math.floor(noise(x/9,y/9,seed)*3.2),mk=G.mask[I(x,y)];
@@ -147,7 +148,7 @@ function genZone(){
 function forgetZone(){
  for(let y=0;y<H;y++)for(let x=PW;x<W;x++){if(G.keep[I(x,y)])continue;setCol(x,y,0,0,0);G.mask[I(x,y)]=0;G.rev[I(x,y)]=0;}
  for(const k in G.tok){const p=tparse(k);if(p[0]>=PW&&!G.keep[I(p[0],p[1])])delete G.tok[k];}
- G.feats=G.feats.filter(f=>f.x<PW||G.keep[I(f.x,f.y)]);G.crit=[];G.zone.on=false;
+ G.feats=G.feats.filter(f=>f.x<PW||G.keep[I(f.x,f.y)]);G.crit=G.crit.filter(e=>e.raider);G.zone.on=false;
  log('The fog closes. What lay beyond the gate is forgotten.');
 }
 // ground lit by a brazier is kept when the zone is forgotten

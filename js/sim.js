@@ -15,6 +15,8 @@ function roll(w,tr,skill,diff,bonus,label){
  const ok=s>=diff;G.fx.push({x:w.x,y:w.y,dice,tgt,ttl:5});
  if(w.name)log(w.name+' '+label+': '+TRS[tr]+(skill?'+'+skill:'')+' ['+dice.join(' ')+'] '+(diff?s+'/'+diff+(ok?'':' FAIL'):s));
  if(diff&&!ok&&skill&&w.name)mark(w,skill);
+ if(diff&&!ok&&w.name&&/^(digs|works)/.test(label)&&(G.noise||0)<1){G.noise=(G.noise||0)+.1;addThreat(.1,'noise');} // at most one threat a day from noise
+ if(w.name)emit('roll',{ok:diff?ok:s>0});
  return{s,ok};
 }
 function match(t,s){
@@ -42,7 +44,7 @@ const NN=W*H*(Z+1),N=(x,y,z)=>(z*H+y)*W+x;
 const solid=(x,y,z)=>z>=0&&z<Z&&G.vox[(z*H+y)*W+x]!==0;
 function spot(x,y,z){if(x<0||y<0||x>=W||y>=H||z<1||z>Z||!G.hgt[y*W+x])return false;
  if(!solid(x,y,z-1)||solid(x,y,z)||solid(x,y,z+1))return false;
- return!(x===47&&y===24&&!G.gateOpen);}
+ return!(x===47&&y===24&&!G.gateOpen&&!G.gateBroken);}
 function canMove(x,y,z,nx,ny,nz){if(Math.abs(nz-z)>1||!spot(nx,ny,nz))return false;
  if(nz>z&&solid(x,y,z+2))return false;if(nz<z&&solid(nx,ny,z+1))return false;return true;}
 // the floor height reached by stepping from (x,y,z) onto tile (nx,ny), or -1
@@ -122,7 +124,7 @@ function jIdle(c){const x=24+ri(9)-4,y=24+ri(9)-4;if(!setJob(c,{t:'wait',n:6+ri(
 function pickJob(c){
  if(c.party)return partyJob(c);
  if(c.hands[1]&&!rsv('x')){addTok(c.x,c.y,c.hands[1],0,c.z);c.hands[1]=null;}
- jRescue(c)||jEat(c)||jSleep(c)||jWarm(c)||jDrop(c)||jFuel(c)||jCook(c)||jMake(c)||jSupply(c)||jDig(c)||jEquip(c)||jHaul(c)||jGather(c)||jIdle(c);
+ jDefend(c)||jRescue(c)||jEat(c)||jSleep(c)||jWarm(c)||jDrop(c)||jFuel(c)||jCook(c)||jMake(c)||jSupply(c)||jDig(c)||jEquip(c)||jHaul(c)||jGather(c)||jIdle(c);
 }
 // ---- expedition
 function enemyNear(c,r){let b=null,bd=r+1;for(const e of G.crit){const d=md(e,c);if(d<bd){bd=d;b=e;}}return b;}
@@ -185,7 +187,7 @@ function fetchJob2(c,spec){const t=findTok(c,spec);if(!t)return false;return set
 function goHome(c){const s=stockSpot(c)||{x:24,y:24};if(!setJob(c,{t:'home'},s.x,s.y,false)){c.job={t:'wait',n:3};}}
 function sendParty(ids,goal){
  goal=goal||'ore';if(goal==='rescue'&&G.cols.length>=6)goal='ore';
- G.exp={m:ids,goal,state:'out'};G.gateOpen=true;if(!G.zone.on)genZone();
+ G.exp={m:ids,goal,state:'out'};G.gateOpen=true;if(!G.zone.on){genZone();addThreat(1,'a new breach');}
  for(const k of GOAL[goal].feats)if((k==='nest'||k==='cage')&&!G.feats.some(f=>f.k===k)){scatter(k,1,70,93,4,43);if(!G.feats.some(f=>f.k===k))scatter(k,1,56,93,2,45);
   if(k==='nest'){const n=G.feats.find(f=>f.k==='nest');for(let i=0;i<3;i++)mkRat(n.x,n.y);}}
  if(G.card&&G.card.k==='chart'){for(let y=0;y<H;y++)for(let x=PW;x<W;x++)G.rev[I(x,y)]=1;log('The chart shows the whole zone.');}
@@ -204,9 +206,9 @@ function arrive(c){
   endJob(c);break;}
  case'sleep':c.asleep=true;if(c.need.rest<=0||(!night()&&c.need.rest<=1)){if(nearFire(c))c.need.str=Math.max(0,c.need.str-1);endJob(c);}break;
  case'drop':for(const t of c.carry)addTok(c.x,c.y,t,1,c.z);c.carry=[];endJob(c);break;
- case'home':for(const t of c.carry){if(t.card){G.discard.push({k:t.card,pips:CARD[t.card].pips||0});log(c.name+' brings home a card: '+CARD[t.card].n+'.');}else addTok(c.x,c.y,t,1,c.z);}
+ case'home':for(const t of c.carry){if(!t.it&&!t.card&&!t.corpse&&M[t.m].f==='metal')G.stats.ore++;if(t.card){G.discard.push({k:t.card,pips:CARD[t.card].pips||0});log(c.name+' brings home a card: '+CARD[t.card].n+'.');}else addTok(c.x,c.y,t,1,c.z);}
   c.carry=[];if(c.hands[1]){addTok(c.x,c.y,c.hands[1],1,c.z);c.hands[1]=null;}c.party=false;c.armed=false;log(c.name+' is home.');
-  {const e=G.exp;if(e&&e.goal==='map'&&e.mapped&&!e.paid){e.paid=true;G.discard.push({k:'chart',pips:2});log('The map is drawn up: a Chart card joins the deck.');}}
+  {const e=G.exp;if(e&&e.goal==='map'&&e.mapped&&!e.paid){e.paid=true;G.discard.push({k:'chart',pips:2});G.stats.maps++;log('The map is drawn up: a Chart card joins the deck.');}}
   endJob(c);break;
  case'brazier':{const i=c.carry.findIndex(isWood);if(i>=0&&!featAt(c.x,c.y)&&c.x>=PW){c.carry.splice(i,1);
    G.feats.push({id:G.nid++,k:'brazier',x:c.x,y:c.y,life:6,left:1,grow:0});recomputeKeep();log(c.name+' lights a brazier. The ground around it is held.');}
@@ -216,7 +218,7 @@ function arrive(c){
   else{d.by=null;d.home=true;d.downT=0;d.x=c.x;d.y=c.y;d.z=c.z;log(c.name+' carries '+d.name+' home.');
    if(d.captive){d.captive=false;d.down=false;log(d.name+' is freed and stays.');}endJob(c);}break;}
  case'fight':{const e=G.crit.find(e=>e.id===j.id);if(!e){endJob(c);break;}
-  if(md(e,c)>1){if(!goTo(c,e.x,e.y,true))endJob(c);break;}
+  if(md(e,c)>1){if(!goTo(c,e.x,e.y,true,e.z))endJob(c);break;}
   attack(c,e);c.cd=1;break;}
  case'dig':{if(!j.w){j.w=1;c.cd=8;break;}
   const x=j.x,y=j.y,h=topZ(x,y),z=j.z!=null?j.z:h-1;delete G.digs[TK(x,y,z)];
@@ -225,7 +227,7 @@ function arrive(c){
    G.vox[VI(x,y,z)]=0;touch(x,y);
    if(z===h-1){let nh=h-1;while(nh>0&&!G.vox[VI(x,y,nh-1)])nh--;G.hgt[I(x,y)]=nh; // there may be a hollow underneath
     const ft=featAt(x,y);if(ft&&ft.z==null)G.feats=G.feats.filter(q=>q!==ft);moveTop(x,y,h,nh);}
-   if(m!==19){if(r.ok)addTok(c.x,c.y,{m},0,c.z);else log('The '+M[m].n+' shatters to nothing.');}}
+   emit('dig');if(m!==19){if(r.ok){addTok(c.x,c.y,{m},0,c.z);pop(x,y,z,'+'+M[m].n,M[m].c);}else log('The '+M[m].n+' shatters to nothing.');}}
   endJob(c);break;}
  case'gather':{const ft=G.feats.find(q=>q.id===j.f);if(!ft||ft.left<=0){endJob(c);break;}const F=FEAT[ft.k];
   if(!j.w){j.w=1;c.cd=F.dur;break;}
@@ -234,19 +236,21 @@ function arrive(c){
   if(F.card){const ks=['seam','dry','wander','seam','dry'];addTok(ft.x,ft.y,{card:ks[ri(ks.length)]},0,c.z);}
   else if(F.cage){if(G.cols.length<6){const d=mkCol(ft.x,ft.y);d.down=true;d.home=false;d.captive=true;d.need.hun=4;log('The cage opens. '+d.name+' cannot walk and must be carried.');}
    if(G.exp)G.exp.state='return';}
-  else addTok(ft.x,ft.y,{m:F.m},0,ft.z!=null?ft.z:G.hgt[I(ft.x,ft.y)]);
+  else{addTok(ft.x,ft.y,{m:F.m},0,ft.z!=null?ft.z:G.hgt[I(ft.x,ft.y)]);if(r.ok)pop(ft.x,ft.y,ft.z!=null?ft.z:G.hgt[I(ft.x,ft.y)],'+'+M[F.m].n,M[F.m].c);}
+  if(ft.k==='nest'&&ft.left<=1)G.stats.nests++;
   ft.left--;if(ft.left<=0){if(F.grow)ft.grow=DAY*2;else G.feats=G.feats.filter(q=>q!==ft);}
   if(!r.ok){c.cd=8;j.w=0;if(ft.left>0)break;}else if(ft.left>0&&(c.party||ft.k==='tree'||ft.k==='scrap')){j.w=0;break;}
   endJob(c);if(!r.ok)c.cd=8;break;}
  case'make':{const s=G.sites.find(q=>q.id===j.sid);if(!s){endJob(c);break;}
   if(!j.w){j.w=1;c.cd=8;break;}
-  const sk=s.kind==='bill'?SKILL[M[s.m].f]:s.kind==='bench'?'Wood':'Stone',tr=s.kind==='bill'||s.kind==='bench'?1:0;
+  const sk=s.kind==='bill'?SKILL[M[s.m].f]:s.kind==='bench'?'Wood':s.kind==='trap'?'Metal':'Stone',tr=s.kind==='bill'||s.kind==='bench'||s.kind==='trap'?1:0;
   const d=s.kind==='bill'&&M[s.m].f==='metal'?2:1;
   const r=roll(c,tr,sk,d,0,s.kind==='bill'?'makes '+ITEM[s.it].n:'builds');
   G.sites=G.sites.filter(q=>q!==s);
-  if(s.kind==='hearth'||s.kind==='bench'){G.feats.push({id:G.nid++,k:s.kind,x:s.x,y:s.y,m:s.m,fuel:0,left:1,grow:0});log('A '+FEAT[s.kind].n+' stands.');}
+  if(s.kind==='trap'){G.feats.push({id:G.nid++,k:'trap',x:s.x,y:s.y,m:s.m,left:1,grow:0});log('A trap is set.');pop(s.x,s.y,G.hgt[I(s.x,s.y)],'trap set');}
+  else if(s.kind==='hearth'||s.kind==='bench'){G.feats.push({id:G.nid++,k:s.kind,x:s.x,y:s.y,m:s.m,fuel:0,left:1,grow:0});log('A '+FEAT[s.kind].n+' stands.');}
   else if(s.kind==='voxel'){const h=topZ(s.x,s.y);if(h<Z-2){G.vox[VI(s.x,s.y,h)]=s.m;G.hgt[I(s.x,s.y)]=h+1;touch(s.x,s.y);moveTop(s.x,s.y,h,h+1);}}
-  else{const it={it:s.it,m:s.m};if(!r.ok){it.flawed=1;log('The '+ITEM[s.it].n+' comes out flawed.');}addTok(s.x,s.y,it);}
+  else{const it={it:s.it,m:s.m};if(!r.ok){it.flawed=1;log('The '+ITEM[s.it].n+' comes out flawed.');}addTok(s.x,s.y,it);pop(s.x,s.y,G.hgt[I(s.x,s.y)],'+'+M[s.m].n+' '+ITEM[s.it].n.toLowerCase(),'#f0c040');emit('make');}
   endJob(c);if(!r.ok)c.cd=6;break;}
  case'fetch':{
   if(j.s===0){let n=0;const max=j.to==='stock'||j.to==='keep'?cap(c)-c.carry.length:1;
@@ -271,8 +275,8 @@ function arrive(c){
 function seamDie(){if(G.card&&G.card.k==='seam'&&!G.seam){G.seam=true;return 1;}return 0;}
 // ---- fighting
 function attack(a,d){
- const wi=a.hands&&a.hands[1],ws=a.name?(wi?ITEM[wi.it].wpn:null):'Bite';
- const ar=roll(a,a.name?0:1,ws,0,wi?1:0,'strikes at '+(d.name||d.k));
+ const wi=a.hands&&a.hands[1],ws=a.hands?(wi?ITEM[wi.it].wpn:null):'Bite';
+ const ar=roll(a,a.hands?0:1,ws,0,wi?1:0,'strikes at '+(d.name||d.k));emit('swing');
  const sh=d.hands&&d.hands[0]&&ITEM[d.hands[0].it].shield;
  const dr=roll(d,1,sh?'Shield':null,0,sh?1:0,'defends');
  const mg=ar.s-dr.s;
@@ -280,14 +284,15 @@ function attack(a,d){
  if(d.name&&sh)mark(d,'Shield');
  for(let n=mg>=2?2:1;n>0;n--){const ai=ri(6),w=d.worn&&d.worn[ai];
   if(w){let s=0;for(let i=M[w.m].h-(w.flawed?1:0);i>0;i--)if(1+ri(6)>=5)s++;if(s){log((d.name||d.k)+"'s "+ITEM[w.it].n+' turns the blow.');continue;}}
-  d.wd[ai]++;log((d.name||d.k)+' is wounded: '+AREA[ai]+'.');}
+  d.wd[ai]++;log((d.name||d.k)+' is wounded: '+AREA[ai]+'.');pop(d.x,d.y,d.z,'✚','#e04040');emit('hit');}
  if(d.name){if(wounds(d)>=3&&!d.down)goDown(d);}
+ else if(d.raider){if(wounds(d)>=3){G.crit=G.crit.filter(e=>e!==d);for(const t of d.carry.concat(d.hands,d.worn))if(t)addTok(d.x,d.y,t,0,d.z);log('A raider falls.');G.stats.kills++;emit('kill');}}
  else if(wounds(d)>=2){G.crit=G.crit.filter(e=>e!==d);addTok(d.x,d.y,{m:16},0,d.z);if(ri(2))addTok(d.x,d.y,{m:11},0,d.z);log('The '+d.k+' dies.');}
 }
 function goDown(c){
  endJob(c);for(const t of c.carry)addTok(c.x,c.y,t,0,c.z);c.carry=[];
  for(const o of G.cols){if(o.by===c.id)o.by=null;if(o!==c)o.need.str=Math.min(6,o.need.str+1);}
- c.down=true;c.downT=0;c.party=false;c.armed=false;c.home=isHome(c);log(c.name+' is DOWN.');
+ c.down=true;c.downT=0;c.party=false;c.armed=false;c.home=isHome(c);log(c.name+' is DOWN.');emit('banner',{t:c.name+' is down!',k:'bad'});emit('down');
 }
 function die(c){
  log(c.name+' dies, abandoned.');addTok(c.x,c.y,{corpse:c.name},0,c.z);
@@ -311,6 +316,8 @@ function tickCol(c){
    log(c.name+' rises, scarred: '+TR[s]+' rolls now need a 6.');}
   return;}
  if(c.cd>0){c.cd--;return;}
+ // a raider close by: drop what you are doing
+ if(c.job&&!c.party&&c.job.t!=='fight'&&c.job.t!=='rescue'&&!(c.job.t==='fetch'&&c.job.to==='arm')&&G.crit.some(e=>e.raider&&md(e,c)<=8))endJob(c);
  if(c.job&&c.x>=PW&&c.job.t!=='fight'&&c.job.t!=='rescue'&&(enemyNear(c,3)||(c.party&&G.cols.some(d=>d.party&&d.job&&d.job.t==='fight'))))endJob(c);
  if(!c.job)pickJob(c);
  if(!c.job)return;
@@ -335,7 +342,7 @@ function tickCrit(e){
  if(!b||md(p,b)<bd){e._px=e.x;e._py=e.y;e._pz=e.z;e._mv=G.t;e.face=dirOf(p.x-e.x,p.y-e.y);e.x=p.x;e.y=p.y;e.z=p.z;}
 }
 function dawn(){
- G.seam=false;
+ G.seam=false;emit('dawn');threatAtDawn();if(G.gateBroken&&!G.raid){G.gateBroken=false;log('The gate is mended and barred again.');}
  const res=[['hun',0,'hunger'],['temp',1,'cold'],['rest',4,'weariness'],['str',5,'dread']];
  for(const c of G.cols){c.pen=0;if(c.down)continue;
   for(const r of res)if(c.need[r[0]]>=6&&!roll(c,r[1],null,1,0,'resists '+r[2]).ok){c.pen=1;if(r[0]!=='str')c.need.str=Math.min(6,c.need.str+1);}
@@ -354,16 +361,92 @@ function dawn(){
 function findAnyFood(){for(const k in G.tok){const p=tparse(k);if(p[0]>=PW)continue;const t=takeTok(p[0],p[1],{food:1},p[2]);if(t)return t;}return null;}
 function tick(){
  if(G.over)return;
- G.fx=G.fx.filter(f=>--f.ttl>0);
+ G.fx=G.fx.filter(f=>--f.ttl>0);if(G.pops)G.pops=G.pops.filter(p=>--p.ttl>0);
  G.t++;G._cnt=null;
  if(G.t%DAY===0)dawn();
  const h=hearth();if(h&&h.fuel>0)h.fuel--;
  if(season()!==3)for(const f of G.feats)if(f.grow>0&&--f.grow===0)f.left=FEAT[f.k].uses;
  if(G.t%150===0&&G.crit.length<8){const n=G.feats.find(f=>f.k==='nest');if(n)mkRat(n.x,n.y);}
  for(const c of G.cols.slice())tickCol(c);
- for(const e of G.crit.slice())tickCrit(e);
+ for(const e of G.crit.slice())if(e.raider)tickRaider(e);else tickCrit(e);
+ tickRaidGate();if(G.t%10===0)checkGoals();
  for(const c of G.cols)if(c.x>=PW-1)for(let dy=-5;dy<=5;dy++)for(let dx=-5;dx<=5;dx++){const x=c.x+dx,y=c.y+dy;if(x>=PW&&x<W&&y>=0&&y<H&&dx*dx+dy*dy<=27)G.rev[I(x,y)]=1;}
  if(G.exp&&!G.cols.some(c=>c.party))G.exp=null;
  if(G.zone.on&&!G.exp&&!G.cols.some(c=>c.x>=PW))forgetZone();
  if(G.t%60===0)save();
 }
+
+// ---- Events for sound and screen effects. The simulation only announces them; ui.js listens. pop() floats a short
+// label above a spot for a few ticks.
+let emit=()=>{};
+function pop(x,y,z,t,c){(G.pops=G.pops||[]).push({x,y,z,t,c:c||'#f0e6c8',ttl:4});if(G.pops.length>24)G.pops.shift();}
+
+// ---- Threat and raids. A visible track of 12 threat tokens fills from time, noise, wealth and breaches. At the top,
+// raiders come to the gate: a shut gate holds them for a while, then they break in, fight, and flee or die. [slop] numbers
+const THREAT_MAX=12;
+function addThreat(n,why){if(G.raid)return;const before=Math.floor(G.threat||0);G.threat=Math.min(THREAT_MAX,(G.threat||0)+n);
+ if(Math.floor(G.threat)>before){log('Threat rises ('+why+'): '+Math.floor(G.threat)+'/'+THREAT_MAX+'.');emit('threat');}
+ if(G.threat>=THREAT_MAX&&day()>=7)startRaid();} // the first week is quiet
+function threatAtDawn(){G.noise=0;if(G.threat>=THREAT_MAX&&day()>=7)return startRaid();if(day()<2)return;let tok=0;for(const k in G.tok)if(tparse(k)[0]<PW)tok+=G.tok[k].length;
+ addThreat(1,'time');if(tok>=12)addThreat(Math.floor(tok/12)*.5,'wealth');if(G.zone.on)addThreat(1,'the open breach');}
+function startRaid(){G.raids=(G.raids||0)+1;const n=Math.min(5,1+Math.floor((G.raids-1)/2));G.threat=0;
+ G.raid={n,hp:G.gateOpen?0:G.gateMax||6,spawned:false,t:G.t};
+ log('RAID: '+n+' raiders come to the gate.');emit('banner',{t:'Raiders at the gate!',k:'bad'});emit('raid');}
+const gateOpenTo=()=>G.gateOpen||G.gateBroken;
+function mkRaider(x,y){const L={skin:SKIN[ri(SKIN.length)],hair:HAIR[ri(HAIR.length)],eye:EYE[ri(EYE.length)],style:ri(6),beard:ri(3)};
+ const m=[[6,11],[7,11],[6,12],[2,11]][ri(4)],arm=G.raids>=3,e={id:G.nid++,k:'Raider',raider:true,x,y,z:G.hgt[I(x,y)],tr:[2,1,2,1,1,1],sk:{Haft:G.raids>=5?2:1},wd:[0,0,0,0,0,0],cd:2,
+ worn:[arm?{it:'cap',m:m[0]}:null,arm?{it:'jerkin',m:m[1]}:null,null,null,null,{it:'cloak',m:16}],hands:[null,{it:'club',m:4}],carry:[],scars:[],look:L,face:2,path:[]};
+ G.crit.push(e);return e;}
+function tickRaidGate(){const R=G.raid;if(!R)return;
+ if(!R.spawned){if(R.hp>0){if(G.t%5===0){R.hp--;emit('thud');log('The gate shudders under their blows: '+R.hp+' left.');if(R.hp<=0){G.gateBroken=true;log('The gate gives way!');emit('banner',{t:'The gate is broken!',k:'bad'});}}return;}
+  const spots=[[46,24],[46,23],[46,25],[45,24],[45,23],[45,25]];for(let i=0;i<R.n;i++){const s=spots[i%spots.length];mkRaider(s[0],s[1]);}R.spawned=true;return;}
+ if(!G.crit.some(e=>e.raider)){G.raid=null;G.stats.raids++;log('The raid is over.');emit('banner',{t:'The raid is over',k:'good'});emit('raidEnd');}}
+function tickRaider(e){
+ if(e.cd>0){e.cd--;return;}
+ const flee=wounds(e)>=2||!G.cols.some(c=>!c.down&&c.x<PW);
+ if(flee){if(e.x>=46&&Math.abs(e.y-24)<=1){G.crit=G.crit.filter(o=>o!==e);
+   if(e.carry.length)log('A raider escapes with '+e.carry.length+' token'+(e.carry.length>1?'s':'')+'.');else log('A raider flees.');return;}
+  if(!e.loot&&!e.carry.length){const t=findTok(e,{any:1});if(t&&md(t,e)<=1){const k=takeTok(t.x,t.y,{any:1},t.z);if(k)e.carry.push(k);e.loot=1;}
+   else if(t&&!wounds(e)&&(!e.path.length||G.t%4===0))goTo(e,t.x,t.y,false,t.z);}
+  if(e.loot||e.carry.length||wounds(e)>=2){if(!e.path.length||G.t%4===0)goTo(e,47,24,false,G.gateZ);}}
+ else{let b=null,bd=1e9;for(const c of G.cols){if(c.down||c.x>=PW)continue;const d=md(c,e);if(d<bd){bd=d;b=c;}}
+  if(b&&bd<=1){e.face=dirOf(b.x-e.x,b.y-e.y);attack(e,b);e.cd=2;return;}
+  if(b&&(!e.path.length||G.t%3===0))goTo(e,b.x,b.y,true,b.z);}
+ if(e.path.length){const i=e.path.shift(),x=i%W,r=(i/W)|0,y=r%H,z=(r/H)|0;
+  if(Math.abs(x-e.x)+Math.abs(y-e.y)===1&&canMove(e.x,e.y,e.z,x,y,z)&&!G.crit.some(o=>o!==e&&o.x===x&&o.y===y)){
+   e._px=e.x;e._py=e.y;e._pz=e.z;e._mv=G.t;e.face=dirOf(x-e.x,y-e.y);e.x=x;e.y=y;e.z=z;
+   const tp=G.feats.find(f=>f.k==='trap'&&f.x===x&&f.y===y&&f.left>0);
+   if(tp){tp.left=0;const r_=roll(e,1,null,2,0,'');log('A raider steps on a trap!');emit('hit');
+    if(!r_.ok){e.wd[2]+=2;pop(x,y,z,'✚✚','#e04040');log('The trap bites deep.');if(wounds(e)>=3){G.crit=G.crit.filter(o=>o!==e);for(const t of e.carry.concat(e.hands,e.worn))if(t)addTok(x,y,t,0,z);log('The raider dies in the trap.');G.stats.kills++;emit('kill');G.feats=G.feats.filter(f=>f!==tp);return;}}
+    G.feats=G.feats.filter(f=>f!==tp);}}
+  else e.path=[];}
+}
+// colonists defend the plot: arm up if there is a weapon to hand, then go for the nearest raider
+function jDefend(c){const rs=G.crit.filter(e=>e.raider&&e.x<PW+1);if(!rs.length||c.party)return false;
+ let b=null,bd=1e9;for(const e of rs){const d=md(e,c);if(d<bd){bd=d;b=e;}}
+ if(!c.hands[1]&&bd>2&&fetchJob2(c,{wpn:1}))return true;
+ if(!c.hands[1]&&bd>2){const s=stockSpot(c)||{x:24,y:24};if(md(s,c)>1)return setJob(c,{t:'wait',n:3},s.x,s.y,false);c.job={t:'wait',n:3};return true;} // unarmed: shelter at the stockpile
+ return setJob(c,{t:'fight',id:b.id},b.x,b.y,true,b.z);}
+
+// ---- Goals: a fixed ladder of milestones. Three are shown at a time; each pays a reward and renown. [slop] list
+const GOALS=[
+ {n:'Light a hearth',t:'Build a hearth.',ok:()=>!!hearth(),r:'Dry wood card',rw:()=>addCard('dry')},
+ {n:'Set up a workbench',t:'Build a workbench.',ok:()=>!!bench(),r:'+3 deadwood',rw:()=>{for(let i=0;i<3;i++)addTok(24,24,{m:4},1);}},
+ {n:'Make a tool',t:'Make any pick, axe or knife.',ok:()=>['pick','axe','knife'].some(k=>owned(k)>1||(k!=='pick'&&owned(k)>0)),r:'Good seam card',rw:()=>addCard('seam')},
+ {n:'Stock the larder',t:'Have 10 food tokens in the plot.',ok:()=>counts().food>=10,r:'2 meals',rw:()=>{for(let i=0;i<2;i++)addTok(24,24,{m:20},1);}},
+ {n:'Bring home ore',t:'A party brings metal home.',ok:()=>G.stats.ore>0,r:'Chart card',rw:()=>addCard('chart')},
+ {n:'Arm everyone',t:'Every colonist holds a weapon.',ok:()=>G.cols.length>0&&G.cols.every(c=>c.hands[1]),r:'+2 iron',rw:()=>{for(let i=0;i<2;i++)addTok(24,24,{m:7},1);}},
+ {n:'Set a trap',t:'Build a trap.',ok:()=>G.feats.some(f=>f.k==='trap'),r:'Gate +3 strength',rw:()=>{G.gateMax=(G.gateMax||6)+3;}},
+ {n:'Hold the gate',t:'Survive a raid.',ok:()=>G.stats.raids>0,r:'Wanderer card',rw:()=>addCard('wander')},
+ {n:'Map a zone',t:'Bring a full map home.',ok:()=>G.discard.concat(G.deck,G.card?[G.card]:[]).some(d=>d.k==='chart')&&G.stats.maps>0,r:'Good seam card',rw:()=>addCard('seam')},
+ {n:'Forge iron',t:'Make anything of iron.',ok:()=>Object.keys(ITEM).some(k=>ownedOf(k,7)>0),r:'Gate +3 strength',rw:()=>{G.gateMax=(G.gateMax||6)+3;}},
+ {n:'Break a nest',t:'A party kills a nest.',ok:()=>G.stats.nests>0,r:'Dry wood card',rw:()=>addCard('dry')},
+ {n:'Through the winter',t:'Reach year 2.',ok:()=>day()>=24,r:'Wanderer card',rw:()=>addCard('wander')},
+ {n:'A full company',t:'Have six colonists.',ok:()=>G.cols.length>=6,r:'Renown x2',rw:()=>{G.renown*=2;}}];
+function addCard(k){G.discard.push({k,pips:CARD[k].pips||0});}
+function owned(k){let n=0;for(const q in G.tok)for(const t of G.tok[q])if(t.it===k)n++;for(const c of G.cols)for(const t of c.worn.concat(c.hands))if(t&&t.it===k)n++;return n;}
+function ownedOf(k,m){let n=0;for(const q in G.tok)for(const t of G.tok[q])if(t.it===k&&t.m===m)n++;for(const c of G.cols)for(const t of c.worn.concat(c.hands))if(t&&t.it===k&&t.m===m)n++;return n;}
+function checkGoals(){G.gdone=G.gdone||[];for(let i=0;i<GOALS.length;i++){if(G.gdone.includes(i))continue;if(!openGoals().includes(i))continue;
+  if(GOALS[i].ok()){G.gdone.push(i);G.renown=(G.renown||0)+10*(1+Math.floor(i/3));GOALS[i].rw();log('Goal: '+GOALS[i].n+'. Reward: '+GOALS[i].r+'.');emit('banner',{t:'Goal: '+GOALS[i].n,s:GOALS[i].r,k:'goal'});emit('goal');}}}
+// the three goals shown: the first three not yet done
+const openGoals=()=>{const r=[];for(let i=0;i<GOALS.length&&r.length<3;i++)if(!(G.gdone||[]).includes(i))r.push(i);return r;};

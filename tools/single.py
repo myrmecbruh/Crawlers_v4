@@ -4,5 +4,5 @@ import re,sys
 h=open('index.html').read()
 css=re.search(r'<style>([\s\S]*?)</style>',h).group(1).replace('height:100vh;height:100dvh','height:100%')
 body=re.search(r'<div id="app">[\s\S]*?\n</div>\n',h).group(0)
-js='\n'.join(open('js/%s.js'%n).read() for n in ['data','world','sim','art','render','ui'])
+js='\n'.join(open('js/%s.js'%n).read() for n in ['data','world','sim','art','render','sound','ui'])
 open(sys.argv[1],'w').write('<title>Crawlers v4</title>\n<style>:root{color-scheme:dark}'+css+'</style>\n'+body+'<script>\n'+js+'\n</script>\n')

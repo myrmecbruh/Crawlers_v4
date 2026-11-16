@@ -50,8 +50,13 @@
 - [slop] The first able member leads. The others stay within 4 tiles, work only what is within 5 tiles of the leader, and the leader waits for anyone more than 6 tiles behind. The party leaves together once all are armed, and everyone turns on an enemy that comes within 7 tiles of any member.
 - [slop] Loot is carried home as visible tokens in hands and packs; what cannot be carried is left.
 
-## Raids (later)
+## Raids
 - [gospel] Raids come later, with defence mechanics.
 - [gospel] A visible threat token track fills from noise, wealth and blight; at the top, a raid happens.
 - [gospel] Raids come from the zones you have breached: more exploration means more fronts.
 - [gospel] Defend with walls, traps and colonists.
+- [slop] The track holds 12 threat tokens, shown under the date. Each dawn from day 2 it gains 1 for time, half a token per 12 tokens lying in the plot (wealth) and 1 while a zone is open (breach); opening a new zone adds 1; failed digging or working rolls add 0.1 each, at most 1 a day (noise).
+- [slop] When it is full (never before day 7) raiders come to the gate and the track empties. Raid size: 1, then +1 every second raid, up to 5. Raiders wear armour from the third raid and fight better from the fifth.
+- [slop] A shut gate holds them: they knock 1 point off it every 5 ticks; it has 6 points (goals add more). Once broken they come in, go for the nearest colonist, flee at 2 wounds (grabbing a token if they can) and die at 3, dropping their gear. The gate is mended at the next dawn after the raid.
+- [slop] Armed colonists fight; unarmed ones fetch a weapon if one lies near, otherwise shelter at the stockpile.
+- [slop] Traps: built from 1 metal token anywhere. A raider stepping on one must roll Agility against 2 or take 2 wounds; the trap is spent either way.

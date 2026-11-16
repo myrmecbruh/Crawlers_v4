@@ -69,7 +69,8 @@
 
 ## Sound
 - [gospel] Full sound, plus mood music and stingers.
-- [slop] Sound is generated or uses very short samples, to stay inside the download budget; music is sparse and can be switched off.
+- [slop] Everything is synthesised with WebAudio, nothing is downloaded: dice, blows, digging, making, the gate, falls, raids, goals and dawn. The mood track is a low drone with slow notes from a minor scale, sparser at night and pulsing in a raid. The ♪ button turns all sound on or off; browsers allow sound only after the first tap.
+- [slop] Feedback: banners across the map for raids, falls, broken gates and goals; short labels float up where something is gained or someone is hurt.
 
 ## Updates
 - [gospel] The game refreshes itself when an update is published.
