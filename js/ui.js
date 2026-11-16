@@ -141,7 +141,7 @@ function act(a,v){
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
  else if(a==='home')goHomeView();else if(a==='sound'){if(SND.on&&!(SND.ctx&&SND.ctx.state==='running'))unlock();else sndToggle();}
- else if(a==='turn')setView(Math.round((cam.yaw+ +v*.5)*2)/2,cam.tilt);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
+ else if(a==='turn')turnBy(+v);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}
  else if(a==='recall')recall();
@@ -171,7 +171,7 @@ const up=e=>{ptrs.delete(e.pointerId);if(drag&&!drag.mv&&e.type==='pointerup'){c
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.s=Math.max(1,Math.min(4,cam.s+(e.deltaY<0?1:-1)));redraw();},{passive:false});
 window.addEventListener('resize',fit);
-document.addEventListener('keydown',e=>{if(e.code==='KeyQ')setView(cam.yaw-.5,cam.tilt);else if(e.code==='KeyE')setView(cam.yaw+.5,cam.tilt);else if(e.code==='KeyR')setView(cam.yaw,cam.tilt?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
+document.addEventListener('keydown',e=>{if(e.code==='KeyQ')turnBy(-1);else if(e.code==='KeyE')turnBy(1);else if(e.code==='KeyR')setView(cam.yaw,cam.tilt?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();clearInterval(timer);timer=null;}else{checkUpdate();if(G.speed>0&&!timer)setSpeed(G.speed);}});
 // When a newer version has been published, save and reload onto it. Checked every two minutes and whenever the page is shown again.
 function checkUpdate(){if(!window.VERSION)return;fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{t=t.trim();

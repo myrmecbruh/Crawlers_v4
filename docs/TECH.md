@@ -22,7 +22,9 @@
 - [gospel] Isometric pixel art. One voxel is a 32 px wide tile (32 x 16 diamond top); characters about 24 x 40.
 - [gospel] Low-resolution pixel 3D: the real 3D scene is rendered small, one canvas pixel per game pixel, and scaled up with crisp pixels, flat-shaded, so it still reads as pixel art. The scale is unchanged: a tile is 32 px wide, a voxel 16 px tall.
 - [gospel] The camera orbits freely around the point you look at, at a fixed isometric pitch, with a second, steeper pitch. (Earlier: quarter turns only.)
-- [slop] The steeper pitch draws the ground tile 32 x 28; voxels stay 16 px tall at both. Turn by dragging with two fingers, the right mouse button or shift; the turn buttons and Q and E turn 45 degrees; R tilts.
+- [slop] The steeper pitch draws the ground tile 32 x 28; voxels stay 16 px tall at both. Turn by dragging with two fingers, the right mouse button or shift; the turn buttons and Q and E make a quarter turn; R tilts.
+- [gospel] Quarter turns are animated, easing out of the start and into the stop.
+- [slop] A quarter turn takes 0.45 s with a cubic ease in and out; frames are drawn only while it turns.
 - [gospel] Characters stay pixel sprites, with visible gear, skin tones, eyes, hair and beards, standing in the 3D world in correct isometric perspective at the same pixel scale as before.
 - [slop] Every sprite (characters, rats, features, tokens) stands upright at its spot; rock in front of it hides it. Colonists hidden by rock show through as a pale outline.
 - [gospel] Characters animate walking with planted feet (no sliding) and face the way they move or work, in true isometric directions that follow the camera.

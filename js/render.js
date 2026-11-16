@@ -21,6 +21,13 @@ function proj(K,x,y,z){const dx=x-cam.fx,dy=y-cam.fy,dz=z-cam.fz,rx=dx*K.cs-dy*K
 // screen offset in game pixels (on the focus height) back to a ground offset in tiles
 function unproj(K,sx,sy){const b=sx/16,a=sy/K.hh,rx=(a+b)/2,ry=(a-b)/2;return[rx*K.cs+ry*K.sn,-rx*K.sn+ry*K.cs];}
 function setView(yaw,tilt){cam.yaw=((yaw%4)+4)%4;cam.tilt=tilt;redraw();}
+// A quarter turn swings smoothly: it starts slowly, speeds up, and settles slowly (ease in and out) over 0.45 s. Frames are
+// drawn only while it turns. A new turn while one is running carries on from where the view is.
+let TURN=null;
+function turnBy(q){const from=cam.yaw,goal=(TURN?TURN.goal:Math.round(cam.yaw))+q;TURN={from,goal,t0:performance.now()};requestAnimationFrame(turnStep);}
+function turnStep(){if(!TURN)return;const p=Math.min(1,(performance.now()-TURN.t0)/450),e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+ cam.yaw=TURN.from+(TURN.goal-TURN.from)*e;dirty=true;draw();
+ if(p<1)requestAnimationFrame(turnStep);else{cam.yaw=((Math.round(TURN.goal)%4)+4)%4;TURN=null;dirty=true;draw();}}
 function lookAt(x,y){cam.fx=x+.5;cam.fy=y+.5;cam.fz=G.hgt[I(x,y)]||cam.fz;redraw();}
 function panBy(f0,dx,dy){const K=camK(),d=unproj(K,dx,dy);cam.fx=Math.max(1,Math.min(G&&G.zone.on?W-1:PW,f0[0]-d[0]));cam.fy=Math.max(1,Math.min(H-1,f0[1]-d[1]));redraw();}
 
