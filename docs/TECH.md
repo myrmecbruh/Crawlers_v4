@@ -56,6 +56,9 @@
 ## Screen
 - [gospel] All lists, controls, buttons and clickable things keep a locked size and place: the interface must never move while someone is trying to tap it.
 - [slop] How: every box has a fixed height (long text is cut or scrolls inside it), lists keep a slot for every possible entry (six colonist slots, every material on the workbench), and buttons are disabled rather than hidden. The camera bar is one fixed row; the date sits on its own line below it.
+- [gospel] Buttons flash when tapped, as feedback.
+- [slop] A button lights up while pressed and flashes the accent colour for a quarter second when it acts.
+- [slop] Workbench items can be queued without the materials; queued items wait for them. Each material button shows how many are queued (+n) and how many tokens you have.
 - [slop] The camera cannot be dragged off the plot (or the zone while it is open), and a ⌂ button brings it back to the camp.
 - [gospel] Both orientations. The screen is divided in half into roughly two squares: a visual side (the world) and an interface side.
 - [slop] Portrait: world on top, interface below. Landscape: world left, interface right.

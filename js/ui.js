@@ -49,9 +49,10 @@ function tabOrders(){
  h+=box('<i>'+HINT[tool]+'</i>','62px','clip');
  h+=box(info?'<b>'+info.x+','+info.y+'</b> '+esc(info.t):'<i>Tap the map to inspect a tile.</i>','62px','scroll');
  const b=bench(),n=counts();
- h+='<div class="box"><b>Workbench</b> <span class="dim">'+(b?'tap to queue; uses that many tokens':'build one to make things')+'</span>';
+ h+='<div class="box"><div class="line"><b>Workbench</b> <span class="dim">'+(b?'+queued · tokens you have':'build one to make things')+'</span></div>';
  for(const k in ITEM){const it=ITEM[k];
-  h+='<div class="bill"><div class="bn">'+it.n+' <span class="dim">×'+it.cost+'</span></div><div class="grid3">'+MATS(k).map(m=>'<button class="mat"'+(!b||(n.m[m]||0)<it.cost?' disabled':'')+' data-a="bill" data-v="'+k+':'+m+'"><i style="background:'+M[m].c+'"></i>'+M[m].n+'</button>').join('')+'</div></div>';}
+  h+='<div class="bill"><div class="bn">'+it.n+' <span class="dim">×'+it.cost+'</span></div><div class="grid3">'+MATS(k).map(m=>{const q=G.sites.filter(s=>s.kind==='bill'&&s.it===k&&s.m===m).length;
+   return'<button class="mat"'+(!b?' disabled':'')+' data-a="bill" data-v="'+k+':'+m+'"><i style="background:'+M[m].c+'"></i><span class="mn">'+M[m].n+'</span><span class="mq">'+(q?'+'+q:'')+'</span><span class="mh">'+(n.m[m]||0)+'</span></button>';}).join('')+'</div></div>';}
  h+='</div>';
  h+=box('<b>Pending</b><br>'+(G.sites.length?G.sites.map(s=>'<span class="chip pend">'+(s.kind==='bill'?M[s.m].n+' '+ITEM[s.it].n:s.kind)+' '+s.have+'/'+s.need+' <a data-a="unsite" data-v="'+s.id+'">✕</a></span>').join(''):'<i>nothing queued</i>'),'86px','scroll');
  return h;
@@ -105,12 +106,16 @@ function tap(p){
 // release cannot swallow the tap. The browser's own click that follows is then ignored; a click with no press before it
 // (a key press on a focused button) still works.
 let press=null,skipClick=0;
-document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-a]');press=el&&!el.disabled?{a:el.dataset.a,v:el.dataset.v,x:e.clientX,y:e.clientY}:null;});
-document.addEventListener('pointerup',e=>{const p=press;press=null;if(!p||Math.hypot(e.clientX-p.x,e.clientY-p.y)>12)return;
+document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-a]');press=el&&!el.disabled?{a:el.dataset.a,v:el.dataset.v,x:e.clientX,y:e.clientY}:null;if(press)el.classList.add('press');});
+const unpress=()=>document.querySelectorAll('.press').forEach(b=>b.classList.remove('press'));
+document.addEventListener('pointercancel',()=>{press=null;unpress();});
+// flash the button that acted (found again by what it does, in case the panel was redrawn)
+function flash(a,v){unpress();const b=document.querySelector('[data-a="'+a+'"]'+(v!=null?'[data-v="'+v+'"]':''));if(!b)return;b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');setTimeout(()=>b.classList.remove('flash'),260);}
+document.addEventListener('pointerup',e=>{const p=press;press=null;if(!p||Math.hypot(e.clientX-p.x,e.clientY-p.y)>12){unpress();return;}
  const el=document.elementFromPoint(e.clientX,e.clientY),b=el&&el.closest('[data-a]');if(b&&(b.disabled||b.dataset.a!==p.a||b.dataset.v!==p.v))return;
- skipClick=performance.now()+600;act(p.a,p.v);});
+ skipClick=performance.now()+600;act(p.a,p.v);setTimeout(()=>flash(p.a,p.v),15);}); // after the panel is redrawn
 document.addEventListener('click',e=>{if(performance.now()<skipClick)return;
- const el=e.target.closest('[data-a]');if(!el||el.disabled)return;act(el.dataset.a,el.dataset.v);});
+ const el=e.target.closest('[data-a]');if(!el||el.disabled)return;act(el.dataset.a,el.dataset.v);flash(el.dataset.a,el.dataset.v);});
 function act(a,v){
  if(a==='tab')tab=v;else if(a==='tool'){tool=v;info=null;}else if(a==='sel')G.sel=G.sel===+v?null:+v;
  else if(a==='speed')return setSpeed(+v);
