@@ -165,7 +165,7 @@ cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set
 cv.addEventListener('pointermove',e=>{if(!drag||!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(drag.twist!=null){if(ptrs.size<2)return;const p=[...ptrs.values()],a=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x);setView(drag.yaw-(a-drag.twist)/(Math.PI/2),cam.tilt);return;}
  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.mv&&Math.abs(dx)+Math.abs(dy)<8)return;drag.mv=true;
- if(drag.rot)setView(drag.yaw-dx/160,cam.tilt);else panBy(drag.f0,dx/cam.s,dy/cam.s);});
+ if(drag.rot)setView(drag.yaw-dx/160,cam.tilt);else panBy(drag.f0,dx/pxs(),dy/pxs());});
 const up=e=>{ptrs.delete(e.pointerId);if(drag&&!drag.mv&&e.type==='pointerup'){const r=cv.getBoundingClientRect(),p=pick(e.clientX-r.left,e.clientY-r.top);if(p)tap(p);}
  if(!ptrs.size)drag=null;};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);

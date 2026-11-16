@@ -277,9 +277,9 @@ function mkProg(vs,fs){const p=gl.createProgram();for(const [t,src] of [[gl.VERT
  gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
  const u={};const n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);for(let i=0;i<n;i++){const a=gl.getActiveUniform(p,i);u[a.name.replace('[0]','')]=gl.getUniformLocation(p,a.name);}
  return{p,u};}
-const PROJ=`uniform vec3 uF;uniform vec4 uK;uniform float uK2;uniform vec2 uVP;
+const PROJ=`uniform vec3 uF;uniform vec4 uK;uniform float uK2;uniform vec2 uVP;uniform vec2 uSh;
 vec4 pr(vec3 w,out float a,out float N){vec3 d=w-uF;float rx=d.x*uK.x-d.y*uK.y,ry=d.x*uK.y+d.y*uK.x;a=rx+ry;
- N=a*uK.w+d.z*uK2;return vec4((rx-ry)*16.,a*uK.z-d.z*16.,0.,0.);}`;
+ N=a*uK.w+d.z*uK2;return vec4((rx-ry)*16.+uSh.x,a*uK.z-d.z*16.+uSh.y,0.,0.);}`;
 const LOOK=`uniform vec3 uFog;uniform float uNight;uniform float uHH;
 // distance fog: haze starts 2 rows behind the point you look at and reaches 75% 14 rows further back
 vec3 look(vec3 c,float a){float far=-a*uHH/8.,fa=clamp((far-2.)/12.*.75,0.,.75);c=mix(c,uFog,fa);return mix(c,vec3(8.,10.,44.)/255.,uNight);}`;
@@ -391,6 +391,9 @@ function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#
 const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
 const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
 let PAL=null;
+const SHIFT=[0,0];
+// CSS pixels per game pixel, as actually drawn
+const pxs=()=>Math.max(1,Math.round(cam.s*(window.devicePixelRatio||1)))/(window.devicePixelRatio||1);
 // frames drawn in the last second and their average cost, for the counter on screen
 const FPS={n:0,ms:0};
 function draw(){const t0_=performance.now();try{draw_();}finally{FPS.n++;FPS.ms+=performance.now()-t0_;}}
@@ -398,8 +401,14 @@ function draw_(){
  dirty=false;if(!G)return;
  if(!gl){const g=cv.getContext&&null;return;}
  if(!TP)glInit();
- const r=cv.parentElement.getBoundingClientRect(),vw=Math.max(1,Math.ceil(r.width/cam.s)),vh=Math.max(1,Math.ceil(r.height/cam.s));
+ // Pixel perfect: one game pixel covers a whole number (k) of physical screen pixels, and the canvas is sized so the
+ // browser scales it by exactly k.
+ const r=cv.parentElement.getBoundingClientRect(),dpr=window.devicePixelRatio||1,k=Math.max(1,Math.round(cam.s*dpr));
+ const vw=Math.max(1,Math.ceil(r.width*dpr/k)),vh=Math.max(1,Math.ceil(r.height*dpr/k));
  if(cv.width!==vw||cv.height!==vh){cv.width=vw;cv.height=vh;}
+ const cssW=vw*k/dpr+'px',cssH=vh*k/dpr+'px';if(cv.style.width!==cssW){cv.style.width=cssW;cv.style.height=cssH;}
+ // and the world is shifted by under a pixel so its grid lands on whole pixels wherever the camera stops
+ {const K0=camK(),o=proj(K0,0,0,0);SHIFT[0]=Math.round(o[0]+vw/2)-(o[0]+vw/2);SHIFT[1]=Math.round(o[1]+vh/2)-(o[1]+vh/2);}
  rebuildDirty();
  if(!PAL){PAL=new Float32Array(72);for(let m=1;m<M.length&&m<24;m++){const c=rgbOf(m);PAL[m*3]=c[0]/255;PAL[m*3+1]=c[1]/255;PAL[m*3+2]=c[2]/255;}}
  // which ground has been seen: the plot always, the zone where a party has looked
@@ -407,7 +416,7 @@ function draw_(){
  gl.bindTexture(gl.TEXTURE_2D,revTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,rev);
  const K=camK(),t=tod(),night=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;
  const common=P=>{gl.useProgram(P.p);gl.uniform3f(P.u.uF,cam.fx,cam.fy,cam.fz);gl.uniform4f(P.u.uK,K.cs,K.sn,K.hh,K.k1);gl.uniform1f(P.u.uK2,K.k2);
-  gl.uniform2f(P.u.uVP,vw,vh);gl.uniform3f(P.u.uFog,38/255,42/255,54/255);gl.uniform1f(P.u.uNight,night);gl.uniform1f(P.u.uHH,K.hh);};
+  gl.uniform2f(P.u.uVP,vw,vh);gl.uniform2f(P.u.uSh,SHIFT[0],SHIFT[1]);gl.uniform3f(P.u.uFog,38/255,42/255,54/255);gl.uniform1f(P.u.uNight,night);gl.uniform1f(P.u.uHH,K.hh);};
  gl.viewport(0,0,vw,vh);gl.clearColor(11/255,11/255,16/255,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
  // terrain
@@ -469,7 +478,7 @@ function draw_(){
 const K_=(x,y)=>x+','+y;
 // what is under a point on the screen: a colonist if one is drawn there, else the first rock along the line of sight
 function pick(px,py){
- const K=camK(),gx=px/cam.s-cv.width/2,gy=py/cam.s-cv.height/2;
+ const K=camK(),gx=px/pxs()-cv.width/2-SHIFT[0],gy=py/pxs()-cv.height/2-SHIFT[1];
  let bc=null,bd=1e9;for(const c of G.cols){if(c.by!=null)continue;const p=proj(K,c.x+.5,c.y+.5,c.z!=null?c.z:G.hgt[I(c.x,c.y)]);
   if(gx>p[0]-8&&gx<p[0]+8&&gy>p[1]-34&&gy<p[1]+3&&-p[2]<bd){bd=-p[2];bc=c;}}
  if(bc)return{x:bc.x,y:bc.y};
