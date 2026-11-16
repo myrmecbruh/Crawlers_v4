@@ -22,7 +22,7 @@ function proj(K,x,y,z){const dx=x-cam.fx,dy=y-cam.fy,dz=z-cam.fz,rx=dx*K.cs-dy*K
 function unproj(K,sx,sy){const b=sx/16,a=sy/K.hh,rx=(a+b)/2,ry=(a-b)/2;return[rx*K.cs+ry*K.sn,-rx*K.sn+ry*K.cs];}
 function setView(yaw,tilt){cam.yaw=((yaw%4)+4)%4;cam.tilt=tilt;redraw();}
 function lookAt(x,y){cam.fx=x+.5;cam.fy=y+.5;cam.fz=G.hgt[I(x,y)]||cam.fz;redraw();}
-function panBy(f0,dx,dy){const K=camK(),d=unproj(K,dx,dy);cam.fx=Math.max(0,Math.min(W,f0[0]-d[0]));cam.fy=Math.max(0,Math.min(H,f0[1]-d[1]));redraw();}
+function panBy(f0,dx,dy){const K=camK(),d=unproj(K,dx,dy);cam.fx=Math.max(1,Math.min(G&&G.zone.on?W-1:PW,f0[0]-d[0]));cam.fy=Math.max(1,Math.min(H-1,f0[1]-d[1]));redraw();}
 
 // ---- Terrain mesh. The solid is a smooth field: every voxel adds a box whose faces fade over a width set by its
 // material's style; where the field passes one half there is rock. It is sampled four times per voxel and turned into a
@@ -372,7 +372,7 @@ let SHL=null; // where shadow quads go while a frame is gathered
 function decal(out,x,y,z,r,g,b,a){const zz=z+.04;for(const [u,v] of[[0,0],[1,0],[1,1],[0,0],[1,1],[0,1]])out.push(x+u,y+v,zz,r,g,b,a,u,v);}
 
 // ---- Drawing a frame
-let dirty=true;
+let dirty=false; // true while a frame is already asked for
 function redraw(){if(dirty)return;dirty=true;requestAnimationFrame(draw);}
 function fit(){redraw();}
 const FSH={tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};

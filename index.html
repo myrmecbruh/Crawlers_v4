@@ -10,8 +10,10 @@
 @media (orientation:portrait){#app{flex-direction:column}}
 #view,#ui{flex:1 1 50%;min-width:0;min-height:0;position:relative}
 #cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;image-rendering:pixelated;cursor:crosshair}
-#top{position:absolute;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;background:linear-gradient(#0b0b10e0,#0b0b1000);pointer-events:none}
-#top>*{pointer-events:auto}#date{flex:1 1 auto;min-width:10ch;text-shadow:0 1px 2px #000}
+#top{position:absolute;left:0;right:0;top:0;padding:6px 8px;background:linear-gradient(#0b0b10e0,#0b0b1000);pointer-events:none}
+#bar{display:flex;gap:6px;flex-wrap:nowrap;pointer-events:auto;width:max-content}#bar span{display:flex;gap:2px}
+#bar button{width:34px;height:30px;padding:0;margin:0;text-align:center}
+#date{height:20px;line-height:20px;margin-top:4px;white-space:nowrap;overflow:hidden;text-shadow:0 1px 2px #000;pointer-events:none}
 #ui{display:flex;flex-direction:column;background:var(--pn);border-left:1px solid var(--ln)}
 @media (orientation:portrait){#ui{border-left:0;border-top:1px solid var(--ln)}}
 #tabs{display:flex;border-bottom:1px solid var(--ln)}#tabs button{flex:1;border:0;border-radius:0;padding:10px 2px;background:none}
@@ -19,23 +21,33 @@
 #panel{flex:1;overflow-y:auto;padding:8px 16px 24px;-webkit-overflow-scrolling:touch}
 button{font:inherit;color:var(--tx);background:var(--bx);border:1px solid var(--ln);border-radius:3px;padding:6px 9px;margin:2px 2px 2px 0;cursor:pointer}
 button.on{border-color:var(--ac);color:var(--ac)}button:disabled{opacity:.4;cursor:default}
-button.big{padding:10px 18px;font-weight:bold}
+button{height:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:top}
+button.big{width:100%;height:42px;padding:0 18px;font-weight:bold;margin:6px 0}
+.in{height:100%}.clip .in{overflow:hidden}.scroll .in{overflow-y:auto}.box{overflow:hidden}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:6px 0}
+.grid4 button,.grid3 button{width:100%;margin:0}
+button.mem{height:46px;text-align:left;line-height:1.3;font-size:12px}button.goal{font-size:12px}
+.txt2{height:38px;overflow:hidden;font-size:12px;line-height:1.5}
+.w14{width:16ch}.w10{width:11ch}button.bad{border-color:var(--bad);color:var(--bad)}.small{font-size:11px;height:16px;overflow:hidden;white-space:nowrap}
+.chip.tk{width:13ch;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}.chip.tk b{float:right}
+.chip.pend{width:21ch;overflow:hidden}.chip.crd{width:15ch;overflow:hidden}
 .box{background:var(--bx);border:1px solid var(--ln);border-radius:3px;padding:8px 10px;margin:0 0 8px}
-.row{display:block;width:100%;text-align:left;margin:0 0 4px;padding:8px 10px}
+.row{display:block;width:100%;height:52px;text-align:left;margin:0 0 4px;padding:6px 10px;line-height:1.45}
+.row b{display:inline-block;width:8ch;overflow:hidden;vertical-align:bottom}
 .dim{color:var(--dm)}i{color:var(--dm)}.pp{color:var(--ac)}.po{color:#44444f}
-.nd{display:inline-block;margin-right:10px;white-space:nowrap;font-size:11px}
+.nd{display:inline-block;margin-right:8px;white-space:nowrap;font-size:11px}.row .nd{width:auto}
 .chip{display:inline-block;border:1px solid var(--ln);border-radius:3px;padding:1px 6px;margin:2px 4px 2px 0;white-space:nowrap}
 .chip i,button i{display:inline-block;width:8px;height:8px;margin-right:5px}
 .chip a{color:var(--bad);cursor:pointer;margin-left:4px}.scar{border-color:var(--bad);color:var(--bad)}
 .k-bane{color:var(--bad)}.k-boon{color:var(--good)}.k-arrival{color:#8fb8e0}.k-blank{color:var(--dm)}
 table{border-collapse:collapse;margin-top:4px}td{padding:1px 12px 1px 0;vertical-align:top}td:first-child{color:var(--dm)}
-.bill{margin:2px 0}.bill button{padding:3px 7px}.log div{padding:1px 0;border-bottom:1px solid #22222c;font-size:12px;overflow-wrap:anywhere}
+.bill{margin:4px 0 6px}.bill .bn{height:18px}.bill .grid3{margin:2px 0}.bill button.mat{height:26px;padding:0 4px;font-size:11px}.log div{padding:1px 0;border-bottom:1px solid #22222c;font-size:12px;overflow-wrap:anywhere}
 </style></head><body>
 <div id="app">
  <div id="view"><canvas id="cv"></canvas>
-  <div id="top"><span id="date"></span>
+  <div id="top"><div id="bar">
    <span id="spd"><button data-a="speed" data-v="0">❚❚</button><button data-a="speed" data-v="1">1×</button><button data-a="speed" data-v="4">4×</button><button data-a="speed" data-v="16">16×</button></span>
-   <span><button data-a="zoom" data-v="-1" title="Zoom out">−</button><button data-a="zoom" data-v="1" title="Zoom in">+</button><button data-a="turn" data-v="-1" title="Turn left 45° (Q); or drag with two fingers, the right button or shift">⟲</button><button data-a="turn" data-v="1" title="Turn right (E)">⟳</button><button id="tilt" data-a="tilt" title="Raised view (R)">⤒</button></span></div>
+   <span><button data-a="zoom" data-v="-1" title="Zoom out">−</button><button data-a="zoom" data-v="1" title="Zoom in">+</button><button data-a="turn" data-v="-1" title="Turn left 45° (Q); or drag with two fingers, the right button or shift">⟲</button><button data-a="turn" data-v="1" title="Turn right (E)">⟳</button><button id="tilt" data-a="tilt" title="Raised view (R)">⤒</button><button data-a="home" title="Back to camp">⌂</button></span></div><div id="date"></div></div>
  </div>
  <div id="ui">
   <div id="tabs"><button data-a="tab" data-v="colony">Colony</button><button data-a="tab" data-v="orders">Orders</button><button data-a="tab" data-v="party">Party</button><button data-a="tab" data-v="cards">Cards</button><button data-a="tab" data-v="log">Log</button></div>

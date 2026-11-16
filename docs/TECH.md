@@ -54,6 +54,9 @@
 - [slop] Material colour is applied by palette swap, not separate art per material.
 
 ## Screen
+- [gospel] All lists, controls, buttons and clickable things keep a locked size and place: the interface must never move while someone is trying to tap it.
+- [slop] How: every box has a fixed height (long text is cut or scrolls inside it), lists keep a slot for every possible entry (six colonist slots, every material on the workbench), and buttons are disabled rather than hidden. The camera bar is one fixed row; the date sits on its own line below it.
+- [slop] The camera cannot be dragged off the plot (or the zone while it is open), and a ⌂ button brings it back to the camp.
 - [gospel] Both orientations. The screen is divided in half into roughly two squares: a visual side (the world) and an interface side.
 - [slop] Portrait: world on top, interface below. Landscape: world left, interface right.
 
