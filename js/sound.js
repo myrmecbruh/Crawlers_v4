@@ -8,7 +8,10 @@ function sndStart(){if(SND.ctx||!SND.on)return;try{const C=window.AudioContext||
  SND.master=SND.ctx.createGain();SND.master.gain.value=.5;SND.master.connect(SND.ctx.destination);musicStart();}catch(e){SND.ctx=null;}}
 function sndToggle(){SND.on=!SND.on;try{localStorage.setItem('crawlers4-sound',SND.on?'1':'0');}catch(e){}
  if(SND.on){if(!SND.ctx)sndStart();else SND.ctx.resume();}else if(SND.ctx)SND.ctx.suspend();}
-document.addEventListener('pointerdown',()=>{if(SND.on&&!SND.ctx)sndStart();else if(SND.ctx&&SND.on&&SND.ctx.state==='suspended')SND.ctx.resume();},{capture:true});
+// Phones only let sound start inside a tap, and some only count the end of a touch or a click: try on all of them.
+const unlock=()=>{if(!SND.on)return;if(!SND.ctx)sndStart();if(SND.ctx&&SND.ctx.state!=='running')SND.ctx.resume();
+ if(SND.ctx&&!SND.primed){const b=SND.ctx.createBuffer(1,1,22050),s=SND.ctx.createBufferSource();s.buffer=b;s.connect(SND.ctx.destination);s.start(0);SND.primed=true;}};
+for(const ev of['pointerdown','pointerup','touchend','click','keydown'])document.addEventListener(ev,unlock,{capture:true});
 // one shaped tone or noise burst
 function tone(f,dur,type,vol,slide,delay){const C=SND.ctx;if(!C||!SND.on)return;const t=C.currentTime+(delay||0),o=C.createOscillator(),g=C.createGain();
  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+dur);
@@ -36,14 +39,14 @@ const SFX={
  threat:()=>{if(limited('threat',800))tone(147,.5,'sine',.12,.9);}};
 // the mood: a low drone and slow notes from a minor scale; lower and sparser at night, a pulse during a raid
 function musicStart(){const C=SND.ctx;const g=C.createGain();g.gain.value=.05;g.connect(SND.master);SND.music=g;
- for(const f of[55,82.4]){const o=C.createOscillator(),lp=C.createBiquadFilter();o.type='sawtooth';o.frequency.value=f;o.detune.value=(Math.random()-.5)*8;lp.type='lowpass';lp.frequency.value=260;o.connect(lp);lp.connect(g);o.start();}
+ for(const f of[110,164.8,220]){const o=C.createOscillator(),lp=C.createBiquadFilter();o.type='sawtooth';o.frequency.value=f;o.detune.value=(Math.random()-.5)*10;lp.type='lowpass';lp.frequency.value=520;o.connect(lp);lp.connect(g);o.start();}
  setInterval(musicTick,500);}
 const SCALE=[220,261.6,293.7,329.6,392,440,523.3];
 function musicTick(){const C=SND.ctx;if(!C||!SND.on||!G)return;const t=C.currentTime,raid=!!(G.raid);
- SND.music.gain.setTargetAtTime(raid?.08:night()?.035:.05,t,1.5);
- if(raid&&G.speed>0){tone(73,.25,'sine',.25,.6);return;}
- if(t<SND.nextNote||G.speed===0)return;SND.nextNote=t+(night()?6:3.5)+Math.random()*4;
- const f=SCALE[Math.floor(Math.random()*SCALE.length)]*(night()?.5:1);tone(f,2.6,'triangle',.05);if(Math.random()<.4)tone(f*1.5,2.2,'sine',.025,1,.4);}
+ SND.music.gain.setTargetAtTime(raid?.1:night()?.05:.07,t,1.5);
+ if(raid&&G.speed>0){tone(110,.25,'sine',.25,.6);return;}
+ if(t<SND.nextNote)return;SND.nextNote=t+(night()?4:2.2)+Math.random()*3; // music plays while paused too
+ const f=SCALE[Math.floor(Math.random()*SCALE.length)]*(night()?.75:1);tone(f,2.8,'triangle',.11);if(Math.random()<.5)tone(f*1.5,2.4,'sine',.05,1,.35);}
 // the simulation's events
 emit=function(t,d){if(t==='banner')return banner(d.t,d.s,d.k);const f=SFX[t];if(f)f(d);};
 // a banner across the middle of the map; it never takes taps and never moves anything

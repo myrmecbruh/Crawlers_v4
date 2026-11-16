@@ -94,7 +94,7 @@ function tabCards(){
 function tabLog(){return'<div class="box log">'+G.log.slice().reverse().map(l=>'<div'+(/FAIL|DOWN|dies|wounded/.test(l)?' class="k-bane"':'')+'>'+esc(l)+'</div>').join('')+'</div>';}
 function render(){
  $('thr').innerHTML='Threat '+Array.from({length:THREAT_MAX},(_,i)=>'<span class="t'+(i<Math.floor(G.threat||0)?' f':'')+'"></span>').join('')+' '+(G.raid?'<b style="color:#e04040">RAID</b>':Math.floor(G.threat||0)+'/'+THREAT_MAX)+' · renown '+(G.renown||0);
- $('snd').classList.toggle('on',SND.on);
+ $('snd').classList.toggle('on',SND.on&&!!SND.ctx&&SND.ctx.state==='running');$('snd').classList.toggle('wait',SND.on&&!(SND.ctx&&SND.ctx.state==='running'));
  $('dtxt').textContent=SEASON[season()]+' '+(day()%6+1)+', year '+(Math.floor(day()/24)+1)+' · '+(night()?'night':tod()<60?'morning':tod()<120?'midday':'evening');
  $('tilt').classList.toggle('on',!!cam.tilt);
  document.querySelectorAll('#spd button').forEach(b=>b.classList.toggle('on',+b.dataset.v===G.speed));
@@ -140,7 +140,7 @@ function act(a,v){
  if(a==='tab')tab=v;else if(a==='tool'){tool=v;info=null;}else if(a==='sel')G.sel=G.sel===+v?null:+v;
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
- else if(a==='home')goHomeView();else if(a==='sound')sndToggle();
+ else if(a==='home')goHomeView();else if(a==='sound'){if(SND.on&&!(SND.ctx&&SND.ctx.state==='running'))unlock();else sndToggle();}
  else if(a==='turn')setView(Math.round((cam.yaw+ +v*.5)*2)/2,cam.tilt);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}

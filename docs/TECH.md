@@ -71,7 +71,7 @@
 
 ## Sound
 - [gospel] Full sound, plus mood music and stingers.
-- [slop] Everything is synthesised with WebAudio, nothing is downloaded: dice, blows, digging, making, the gate, falls, raids, goals and dawn. The mood track is a low drone with slow notes from a minor scale, sparser at night and pulsing in a raid. The ♪ button turns all sound on or off; browsers allow sound only after the first tap.
+- [slop] Everything is synthesised with WebAudio, nothing is downloaded: dice, blows, digging, making, the gate, falls, raids, goals and dawn. The mood track is a low drone with slow notes from a minor scale, sparser at night and pulsing in a raid. The ♪ button turns all sound on or off; browsers allow sound only after a tap, so until then (including after each update's reload) the ♪ button has a dashed gold border, and any tap starts the music. The drone sits at 110-220 Hz so phone speakers can play it.
 - [slop] Feedback: banners across the map for raids, falls, broken gates and goals; short labels float up where something is gained or someone is hurt.
 
 ## Updates
