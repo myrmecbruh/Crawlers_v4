@@ -7,9 +7,9 @@ const wounds=w=>w.wd.reduce((a,b)=>a+b,0);
 const rsv=k=>G.res[k]!=null;
 function nearFire(c){const h=hearth();return h&&h.fuel>0&&md(h,c)<=3;}
 function mark(c,s){c.mk[s]=(c.mk[s]||0)+1;const lv=c.sk[s]||0;
- if(lv<3&&c.mk[s]>=[2,4,6][lv]){c.sk[s]=lv+1;c.mk[s]=0;log(c.name+' learns from failure: '+s+' '+(lv+1)+'.');}}
+ if(lv<3&&c.mk[s]>=[2,4,6][lv]){c.sk[s]=lv+1;c.mk[s]=0;log(c.name+' learns from failure: '+s+' '+(lv+1)+'.');pop(c.x,c.y,c.z,s+' '+(lv+1)+'!','#f0c040');emit('make');}}
 function roll(w,tr,skill,diff,bonus,label){
- const n=Math.max(1,w.tr[tr]+(skill?(w.sk[skill]||0):0)+(bonus||0)-(w.pen||0)-(w.wd[4]>0?1:0));
+ const n=Math.max(1,w.tr[tr]+(skill?(w.sk[skill]||0):0)+(bonus||0)-(w.pen||0)-(w.wd[4]>0?1:0)+(w.name?persDie(w,skill,label):0));
  const tgt=w.scars&&w.scars.includes(tr)?6:5,dice=[];let s=0;
  for(let i=0;i<n;i++){const d=1+ri(6);dice.push(d);if(d>=tgt)s++;}
  const ok=s>=diff;G.fx.push({x:w.x,y:w.y,dice,tgt,ttl:5});
@@ -17,6 +17,7 @@ function roll(w,tr,skill,diff,bonus,label){
  if(diff&&!ok&&skill&&w.name)mark(w,skill);
  if(diff&&!ok&&w.name&&/^(digs|works)/.test(label)&&(G.noise||0)<1){G.noise=(G.noise||0)+.1;addThreat(.1,'noise');} // at most one threat a day from noise
  if(w.name)emit('roll',{ok:diff?ok:s>0});
+ if(w.name&&diff)bondAfter(w,ok);
  return{s,ok};
 }
 function match(t,s){
@@ -114,17 +115,17 @@ function jEquip(c){for(let s=0;s<6;s++)if(!c.worn[s]&&fetchJob(c,{worn:s},'wear'
  if(!c.hands[0]&&c.carry.length===0&&fetchJob(c,{tool:1},'wear'))return true;return false;}
 function jHaul(c){if(!stockSpot(c))return false;return fetchJob(c,{any:1},'stock',null,{loose:1});}
 function jGather(c){const n=counts(),want=[];
- if(n.food<8)want.push('moss','tuber');if((n.fam.wood||0)<8)want.push('tree');if((n.fam.metal||0)<6)want.push('scrap');if((n.fam.fiber||0)<4)want.push('reed');
+ if(n.food<8)want.push('crop','moss','tuber');if((n.fam.wood||0)<8)want.push('tree');if((n.fam.metal||0)<6)want.push('scrap');if((n.fam.fiber||0)<4)want.push('reed');
  if(!want.length)return false;const f=flood(c);let b=null,bd=1e9;
  for(const ft of G.feats){if(ft.x>=PW||ft.left<=0||!want.includes(ft.k)||rsv('f'+ft.id))continue;
   const d0=reachD(f,ft.x,ft.y,true,ft.z),d=d0+want.indexOf(ft.k)*3;if(d0>=0&&d<bd){bd=d;b=ft;}}
  return b?setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true,b.z):false;}
 function jDrop(c){if(!c.carry.length)return false;const s=stockSpot(c);if(!s)return false;return setJob(c,{t:'drop'},s.x,s.y,false);}
-function jIdle(c){const x=24+ri(9)-4,y=24+ri(9)-4;if(!setJob(c,{t:'wait',n:6+ri(8)},x,y,false,'any'))c.job={t:'wait',n:5};return true;}
+function jIdle(c){const x=24+ri(9)-4,y=24+ri(9)-4;if(!setJob(c,{t:'wait',n:((c.pers||[]).includes('lazy')?14:6)+ri(8)},x,y,false,'any'))c.job={t:'wait',n:5};return true;}
 function pickJob(c){
  if(c.party)return partyJob(c);
  if(c.hands[1]&&!rsv('x')){addTok(c.x,c.y,c.hands[1],0,c.z);c.hands[1]=null;}
- jDefend(c)||jRescue(c)||jEat(c)||jSleep(c)||jWarm(c)||jDrop(c)||jFuel(c)||jCook(c)||jMake(c)||jSupply(c)||jDig(c)||jEquip(c)||jHaul(c)||jGather(c)||jIdle(c);
+ (c.wander>0&&!c.job)||jDefend(c)||jRescue(c)||jEat(c)||jSleep(c)||jWarm(c)||jDrop(c)||jFuel(c)||jCook(c)||jMake(c)||jSupply(c)||jFarm(c)||jDig(c)||jEquip(c)||jHaul(c)||jGather(c)||jIdle(c);
 }
 // ---- expedition
 function enemyNear(c,r){let b=null,bd=r+1;for(const e of G.crit){const d=md(e,c);if(d<bd){bd=d;b=e;}}return b;}
@@ -262,10 +263,12 @@ function arrive(c){
    j.s=1;let ok;
    if(j.to==='stock'){const s=stockSpot(c);ok=s&&goTo(c,s.x,s.y,false);}
    else if(j.to==='site'){const s=G.sites.find(q=>q.id===j.sid);ok=s&&goTo(c,s.x,s.y,true);}
+   else if(j.to==='sow')ok=goTo(c,j.fx,j.fy,false);
    else{const h=hearth();ok=h&&goTo(c,h.x,h.y,true);}
    if(!ok)endJob(c);break;}
   if(j.to==='stock'){for(const t of c.carry)addTok(c.x,c.y,t,1,c.z);c.carry=[];}
   else if(j.to==='site'){const s=G.sites.find(q=>q.id===j.sid),t=c.carry.pop();if(s&&t){s.have++;if(s.kind!=='bill')s.m=t.m;}else if(t)addTok(c.x,c.y,t,0,c.z);}
+  else if(j.to==='sow'){const t=c.carry.pop();if(G.fields&&G.fields[K(c.x,c.y)]&&!featAt(c.x,c.y)){G.feats.push({id:G.nid++,k:'crop',x:c.x,y:c.y,left:0,grow:DAY*1.5|0});log(c.name+' sows a field.');pop(c.x,c.y,c.z,'sown','#8fbf6a');}else if(t)addTok(c.x,c.y,t,0,c.z);}
   else if(j.to==='fuel'){c.carry.pop();hearth().fuel+=G.card&&G.card.k==='dry'?180:120;}
   else if(j.to==='cook'){if(!j.w){j.w=1;c.cd=6;break;}const t=c.carry.pop();
    const r=roll(c,1,SKILL[M[t.m].f],1,c.hands[0]&&c.hands[0].it==='knife'?1:0,'cooks '+M[t.m].n);addTok(c.x,c.y,{m:20},1,c.z);if(!r.ok)c.cd=8;}
@@ -316,6 +319,7 @@ function tickCol(c){
    log(c.name+' rises, scarred: '+TR[s]+' rolls now need a 6.');}
   return;}
  if(c.cd>0){c.cd--;return;}
+ if(c.wander>0){c.wander--;if(!c.job){const x=4+ri(40),y=4+ri(40);if(!setJob(c,{t:'wait',n:4},x,y,false,'any'))c.job={t:'wait',n:4};}}
  // a raider close by: drop what you are doing
  if(c.job&&!c.party&&c.job.t!=='fight'&&c.job.t!=='rescue'&&!(c.job.t==='fetch'&&c.job.to==='arm')&&G.crit.some(e=>e.raider&&md(e,c)<=8))endJob(c);
  if(c.job&&c.x>=PW&&c.job.t!=='fight'&&c.job.t!=='rescue'&&(enemyNear(c,3)||(c.party&&G.cols.some(d=>d.party&&d.job&&d.job.t==='fight'))))endJob(c);
@@ -342,10 +346,12 @@ function tickCrit(e){
  if(!b||md(p,b)<bd){e._px=e.x;e._py=e.y;e._pz=e.z;e._mv=G.t;e.face=dirOf(p.x-e.x,p.y-e.y);e.x=p.x;e.y=p.y;e.z=p.z;}
 }
 function dawn(){
- G.seam=false;emit('dawn');threatAtDawn();if(G.gateBroken&&!G.raid){G.gateBroken=false;log('The gate is mended and barred again.');}
+ G.seam=false;emit('dawn');spoil();threatAtDawn();if(G.gateBroken&&!G.raid){G.gateBroken=false;log('The gate is mended and barred again.');}
  const res=[['hun',0,'hunger'],['temp',1,'cold'],['rest',4,'weariness'],['str',5,'dread']];
  for(const c of G.cols){c.pen=0;if(c.down)continue;
-  for(const r of res)if(c.need[r[0]]>=6&&!roll(c,r[1],null,1,0,'resists '+r[2]).ok){c.pen=1;if(r[0]!=='str')c.need.str=Math.min(6,c.need.str+1);}
+  const P=c.pers||[];if(P.includes('pious')&&nearFire(c))c.need.str=Math.max(0,c.need.str-1);
+  if(near(c,3).some(o=>(o.pers||[]).includes('cheerful')&&bond(c,o)>=1))c.need.str=Math.max(0,c.need.str-1);
+  for(const r of res)if(c.need[r[0]]>=6&&!roll(c,r[1],null,1,0,'resists '+r[2]).ok){if(r[0]==='str'){breakdown(c);continue;}c.pen=1;c.need.str=Math.min(6,c.need.str+(P.includes('grim')?.5:1));}
   if(wounds(c)>=2&&!roll(c,2,null,1,0,'bears wounds').ok)c.pen=1;
   if(wounds(c)&&isHome(c)){const i=c.wd.findIndex(w=>w>0);c.wd[i]--;}}
  let lost=false;for(const f of G.feats)if(f.k==='brazier'&&--f.life<=0)lost=true;
@@ -450,3 +456,44 @@ function checkGoals(){G.gdone=G.gdone||[];for(let i=0;i<GOALS.length;i++){if(G.g
   if(GOALS[i].ok()){G.gdone.push(i);G.renown=(G.renown||0)+10*(1+Math.floor(i/3));GOALS[i].rw();log('Goal: '+GOALS[i].n+'. Reward: '+GOALS[i].r+'.');emit('banner',{t:'Goal: '+GOALS[i].n,s:GOALS[i].r,k:'goal'});emit('goal');}}}
 // the three goals shown: the first three not yet done
 const openGoals=()=>{const r=[];for(let i=0;i<GOALS.length&&r.length<3;i++)if(!(G.gdone||[]).includes(i))r.push(i);return r;};
+
+// ---- Personality, bonds and breakdowns. Each colonist has two keywords. Working side by side builds a bond (shared
+// success) or a grudge (shared failure); matching keywords warm a pair, clashing ones sour it. A close friend nearby adds
+// a die, a grudge nearby takes one away. [slop] all amounts
+const PERS={brave:'+1 die when fighting.',gentle:'+1 die cooking, -1 die fighting.',curious:'+1 die with relics; likes exploring.',
+ cheerful:'Eases the stress of friends nearby at dawn.',grim:'Stress builds more slowly.',greedy:'Grudges come easily.',pious:'Calmed by the hearth at dawn.',lazy:'Rests longer between jobs.'};
+const CLASH=[['greedy','gentle'],['cheerful','grim'],['brave','lazy'],['pious','greedy']];
+const pairK=(a,b)=>a.id<b.id?a.id+'-'+b.id:b.id+'-'+a.id;
+const bond=(a,b)=>(G.bonds&&G.bonds[pairK(a,b)])||0;
+function near(c,r){return G.cols.filter(o=>o!==c&&!o.down&&md(o,c)<=r);}
+function persDie(w,skill,label){const p=w.pers||[];let d=0;
+ if(/^strikes/.test(label)){if(p.includes('brave'))d++;if(p.includes('gentle'))d--;}
+ if(/^cooks/.test(label)&&p.includes('gentle'))d++;if(skill==='Relic'&&p.includes('curious'))d++;
+ let f=0,g=0;for(const o of near(w,2)){const b=bond(w,o);if(b>=2)f=1;if(b<=-2)g=1;}return d+f-g;}
+function bondAfter(w,ok){G.bonds=G.bonds||{};for(const o of near(w,2)){const k=pairK(w,o),p=(w.pers||[]).concat(o.pers||[]);
+ let d=ok?.12:-.12;if((w.pers||[]).some(x=>(o.pers||[]).includes(x)))d+=.04;if(CLASH.some(c=>p.includes(c[0])&&p.includes(c[1])))d-=.06;
+ if(p.includes('greedy')&&d<0)d*=1.5;const before=Math.trunc(G.bonds[k]||0);G.bonds[k]=Math.max(-3,Math.min(3,(G.bonds[k]||0)+d));const after=Math.trunc(G.bonds[k]);
+ if(after!==before){if(after>before&&after>0){log(w.name+' and '+o.name+' grow closer.');pop(w.x,w.y,w.z,'♥','#e08aa0');}
+  else if(after<before&&after<0){log(w.name+' and '+o.name+' grate on each other.');pop(w.x,w.y,w.z,'✗','#a0a0a0');}}}}
+// a breakdown: what someone does when their stress tops out and they fail to hold it together
+function breakdown(c){const kinds=['smash','wander','binge'];const foe=G.cols.find(o=>o!==c&&!o.down&&bond(c,o)<=-1);if(foe)kinds.push('brawl');
+ const k=kinds[ri(kinds.length)];endJob(c);
+ if(k==='smash'){const all=c.worn.map((t,i)=>t?['w',i]:null).concat(c.hands.map((t,i)=>t?['h',i]:null)).filter(Boolean);
+  if(all.length){const q=all[ri(all.length)],t=q[0]==='w'?c.worn[q[1]]:c.hands[q[1]];if(q[0]==='w')c.worn[q[1]]=null;else c.hands[q[1]]=null;
+   log(c.name+' breaks down and smashes their '+M[t.m].n+' '+ITEM[t.it].n.toLowerCase()+'.');emit('banner',{t:c.name+' breaks down',s:'smashes their '+ITEM[t.it].n.toLowerCase(),k:'bad'});}
+  else{log(c.name+' breaks down, howling at the walls.');emit('banner',{t:c.name+' breaks down',s:'howls at the walls',k:'bad'});}}
+ else if(k==='wander'){c.wander=DAY/2;log(c.name+' breaks down and wanders off, useless for half a day.');emit('banner',{t:c.name+' breaks down',s:'wanders off',k:'bad'});}
+ else if(k==='binge'){let n=0;for(let i=0;i<3;i++){const t=findAnyFood();if(t)n++;}c.need.hun=0;log(c.name+' breaks down and gorges on '+n+' food.');emit('banner',{t:c.name+' breaks down',s:'gorges on '+n+' food',k:'bad'});}
+ else{log(c.name+' breaks down and goes for '+foe.name+'.');emit('banner',{t:c.name+' breaks down',s:'attacks '+foe.name,k:'bad'});attack(c,foe);G.bonds[pairK(c,foe)]=-3;}
+ c.need.str=3;emit('down');}
+
+// ---- Farming and spoilage. A field tile grows a crop of tubers once someone sows a tuber on it; it ripens in a day and
+// a half, can be picked three times, then grows again (not in winter). Food rots: meat in 3 days, meals in 4, moss in 5,
+// tubers in 8. Nothing rots in winter, and food lying under rock (a cellar) rots at half speed. [slop] numbers
+const ROT={16:3,20:4,14:5,15:8};
+function spoil(){if(season()===3)return;for(const k in G.tok){const p=tparse(k),cellar=p[2]<G.hgt[I(p[0],p[1])],a=G.tok[k];
+ for(let i=a.length-1;i>=0;i--){const t=a[i];if(t.it||t.card||t.corpse||!ROT[t.m])continue;t.age=(t.age||0)+(cellar?.5:1);
+  if(t.age>=ROT[t.m]){a.splice(i,1);log('A '+M[t.m].n+' rots away'+(cellar?' even in the cellar':'')+'.');pop(p[0],p[1],p[2],'rots','#8a9a5a');}}
+ if(!a.length)delete G.tok[k];}}
+function jFarm(c){for(const k in G.fields||{}){const p=k.split(','),x=+p[0],y=+p[1];if(featAt(x,y)||rsv('fl'+k))continue;
+  if(fetchJob(c,{m:15},'sow',{fx:x,fy:y,res:['fl'+k]}))return true;}return false;}

@@ -34,6 +34,11 @@
 - [slop] So the colony looks after itself, defends itself in a raid and works towards goals unaided; the player makes it go better.
 - [slop] Goals: a fixed ladder of 13 milestones, three shown at a time (hearth, workbench, a tool, a full larder, ore, arms for everyone, a trap, a survived raid, a mapped zone, iron, a broken nest, a winter, six colonists). Each pays a reward (a card, tokens or a stronger gate) and renown; renown grows with later goals.
 
+## Life sim (2026-11-16)
+- [slop] Personality keywords (two each): brave (+1 die fighting), gentle (+1 die cooking, -1 fighting), curious (+1 die with relics), cheerful (eases friends' stress at dawn), grim (stress builds half as fast), greedy (grudges come easily), pious (calmed by the hearth), lazy (rests longer).
+- [slop] Bonds run from -3 to +3 per pair. A roll made with another colonist within 2 tiles moves their bond: +0.12 on success, -0.12 on failure; a shared keyword warms it, a clashing pair (greedy/gentle, cheerful/grim, brave/lazy, pious/greedy) sours it. A friend at 2 or more nearby gives +1 die; a grudge at -2 or less nearby takes one.
+- [slop] A breakdown happens when stress is full at dawn and the Willpower roll fails: they smash something they carry, wander off for half a day, gorge on food, or attack someone they have a grudge with. Stress then drops to half.
+
 ## Player role
 - [gospel] The colony is controlled indirectly: it runs itself.
 - [gospel] The player assembles parties and sends them into the dungeon.

@@ -254,6 +254,8 @@ function featSpr(f,ax,ay){
  case'nest':rc(ax-8,ay-4,16,6,'#4a3c30');rc(ax-6,ay-7,12,4,'#5a4a3a');rc(ax-2,ay-5,5,3,'#15110e');rc(ax-7,ay-8,2,2,'#d8d0b8');rc(ax+4,ay-9,3,1,'#d8d0b8');rc(ax+6,ay-3,2,1,'#d8d0b8');break;
  case'cage':rc(ax-6,ay-20,12,2,'#7a4a34');rc(ax-6,ay,12,2,'#7a4a34');for(let i=-6;i<=5;i+=3)rc(ax+i,ay-18,1,18,'#9a5a3c');rc(ax-2,ay-6,5,5,'#5e574c');rc(ax-1,ay-10,3,4,'#c9a183');break;
  case'brazier':rc(ax-1,ay-6,2,8,'#3a3a44');rc(ax-4,ay-9,8,3,'#55555f');rc(ax-3,ay-13,6,4,'#e07020');rc(ax-2,ay-16,3,4,'#f0c040');rc(ax+1,ay-14,1,2,'#f0c040');break;
+ case'crop':if(f.left>0){for(const [dx,dy] of[[-6,-1],[0,-3],[5,0],[-2,2]]){rc(ax+dx,ay+dy-5,1,5,'#6a8a50');rc(ax+dx-1,ay+dy-7,3,2,'#7f9a6a');rc(ax+dx-1,ay+dy,3,2,'#b07a9a');}}
+  else for(const [dx,dy] of[[-6,-1],[0,-3],[5,0],[-2,2]])rc(ax+dx,ay+dy-2,1,2,'#6a8a50');break;
  case'trap':rc(ax-7,ay-1,14,3,'#3a3a44');for(let i=-6;i<=5;i+=3){rc(ax+i,ay-5,1,4,'#aab3bd');rc(ax+i,ay-6,1,1,'#e8eef4');}break;
  case'hearth':{const c=M[f.m].c;rc(ax-8,ay-3,16,6,shade(c,.7));rc(ax-6,ay-5,12,3,c);
   if(f.fuel>0){rc(ax-3,ay-10,6,6,'#e07020');rc(ax-2,ay-13,3,4,'#f0c040');rc(ax+1,ay-11,2,2,'#f0c040');}else rc(ax-3,ay-6,6,2,'#222');break;}
@@ -377,7 +379,7 @@ function decal(out,x,y,z,r,g,b,a){const zz=z+.04;for(const [u,v] of[[0,0],[1,0],
 let dirty=false; // true while a frame is already asked for
 function redraw(){if(dirty)return;dirty=true;requestAnimationFrame(draw);}
 function fit(){redraw();}
-const FSH={trap:7,tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
+const FSH={crop:8,trap:7,tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
 function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(o))rc(ex-2,ey-4,2,2,'#d02020');}
 const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
 const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
@@ -414,8 +416,9 @@ function draw_(){
   else{const e=paint(DYN,7,7,3,3,(ax,ay)=>{rc(ax-3,ay-3,7,7,'#5a1010');rc(ax-2,ay-2,5,5,'#e04040');rc(ax-1,ay-1,3,3,'#f0a0a0');});if(e)quad(ov,e,x+.5,y+.5,z+.5);}} // a voxel inside rock: a marker drawn over everything
  for(const q of G.sites){decal(dc,q.x,q.y,top(q.x,q.y),.47,.78,1,.85);
   const e=paint(DYN,q.need*5+2,6,1,1,(ax,ay)=>{for(let n=0;n<q.need;n++)rc(ax+n*5,ay,4,4,n<q.have?'#7fd0ff':'#234');});if(e)quad(dy,e,q.x+.5,q.y+.5,top(q.x,q.y),-(q.need*5)/2+1);}
- for(const f of G.feats){if(!(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier')||!seenAt(f.x,f.y))continue;
-  const key='f'+HH()+f.k+(f.m||'')+(f.k==='hearth'&&f.fuel>0?'l':'');
+ for(const k in G.fields||{}){const p=k.split(','),x=+p[0],y=+p[1];decal(dc,x,y,top(x,y),.45,.62,.3,.6);}
+ for(const f of G.feats){if(!(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier'||f.k==='crop')||!seenAt(f.x,f.y))continue;
+  const key='f'+HH()+f.k+(f.m||'')+(f.k==='hearth'&&f.fuel>0?'l':'')+(f.k==='crop'&&f.left>0?'r':'');
   const e=stat(key,40,46,20,38,(ax,ay)=>{shadow(ax,ay+1,FSH[f.k]||6);featSpr(f,ax,ay);});quad(st,e,f.x+.5,f.y+.5,f.z!=null?f.z:top(f.x,f.y));}
  for(const k in G.tok){const p=tparse(k),x=p[0],y=p[1],z=p[2],a=G.tok[k];if(!a.length||!seenAt(x,y))continue;const ff=z===top(x,y)&&featAt(x,y)?4:0;
   const key='t'+HH()+ff+a.map(tkey).join(',');

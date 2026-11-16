@@ -80,6 +80,7 @@ function mkCol(x,y){
  const used=G.cols.map(c=>c.name),pool=NAMES.filter(n=>!used.includes(n));
  const c={id:G.nid++,name:pool[ri(pool.length)]||'Nameless',tr,sk:{},mk:{},need:{hun:0,rest:0,temp:0,str:0},
   wd:[0,0,0,0,0,0],worn:[null,null,null,null,null,null],hands:[null,null],carry:[],x,y,z:G.hgt[I(x,y)],job:null,path:[],
+  pers:(()=>{const k=Object.keys(PERS),a=k[ri(k.length)];let b=a;while(b===a)b=k[ri(k.length)];return[a,b];})(),
   look:{skin:SKIN[ri(SKIN.length)],hair:HAIR[ri(HAIR.length)],eye:EYE[ri(EYE.length)],style:ri(6),beard:(r=>r<.6?0:r<.72?1:r<.9?2:3)(R())},
   down:false,downT:0,home:false,by:null,scars:[],party:false,armed:false,cd:0,pen:0,asleep:false};
  G.cols.push(c);return c;
@@ -102,7 +103,7 @@ function newGame(seed){
  G={v:1,seed,rs:seed,t:60,speed:1,vox:new Uint8Array(W*H*Z),hgt:new Uint8Array(W*H),rev:new Uint8Array(W*H),keep:new Uint8Array(W*H),mask:new Uint8Array(W*H),
   feats:[],tok:{},stock:{},digs:{},sites:[],cols:[],crit:[],exp:null,zone:{n:0,on:false},gateOpen:false,gate:{x:47,y:24},
   deck:[],discard:[],card:null,log:[],fx:[],nid:1,sel:null,res:{},seam:false,over:false,
-  threat:0,raids:0,raid:null,gateMax:6,gateBroken:false,gdone:[],renown:0,pops:[],stats:{ore:0,maps:0,nests:0,raids:0,kills:0}};
+  threat:0,raids:0,bonds:{},fields:{},raid:null,gateMax:6,gateBroken:false,gdone:[],renown:0,pops:[],stats:{ore:0,maps:0,nests:0,raids:0,kills:0}};
  markAll();shapeRegion(0,PW-1,24,24,21,seed+31);
  for(let y=0;y<H;y++)for(let x=0;x<PW;x++){
   const h=2+Math.floor(noise(x/9,y/9,seed)*3.2),mk=G.mask[I(x,y)];

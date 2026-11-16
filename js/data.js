@@ -56,6 +56,7 @@ const FEAT={
  cache:{n:'Sealed cache',m:17,tr:4,d:1,sk:'Relic',uses:1,dur:10,card:1},
  nest:{n:'Rat nest',m:13,tr:0,d:2,sk:'Flesh',uses:2,dur:10},
  cage:{n:'Caged figure',m:6,tr:1,d:1,sk:'Metal',uses:1,dur:10,cage:1},
+ crop:{n:'Tuber crop',m:15,tr:1,d:1,tool:'knife',uses:3,dur:5,grow:1},
  hearth:{n:'Hearth'},bench:{n:'Workbench'},brazier:{n:'Brazier'},trap:{n:'Trap'}
 };
 const CARD={

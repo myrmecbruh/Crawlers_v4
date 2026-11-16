@@ -11,6 +11,9 @@
 - [gospel] Cooking: a station turns raw tokens into meals that feed more or lift Stress; raw food is risky.
 - [gospel] Spoilage: food tokens rot after some days unless stored cold, salted or smoked.
 
+- [slop] Fields: the Field tool marks ground tiles; a colonist sows a tuber on each; the crop ripens in a day and a half, gives 3 tubers and grows back, except in winter.
+- [slop] Spoilage: meat rots in 3 days, meals in 4, moss in 5, tubers in 8. Nothing rots in winter (cold). Food lying under rock, in a cellar you dig, rots at half speed.
+
 ## Stations
 - [gospel] Each built station takes visible input tokens and a colonist's roll, and outputs tokens (ore to bar to tool). Chains are the engine.
 - [slop] Inputs sit on the station's in-tile, outputs appear on its out-tile.

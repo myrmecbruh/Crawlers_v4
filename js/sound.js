@@ -14,22 +14,22 @@ function tone(f,dur,type,vol,slide,delay){const C=SND.ctx;if(!C||!SND.on)return;
  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+dur);
  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol||.2,t+.008);g.gain.exponentialRampToValueAtTime(.0005,t+dur);o.connect(g);g.connect(SND.master);o.start(t);o.stop(t+dur+.02);}
 let NOISE=null;
-function noise(dur,vol,freq,delay){const C=SND.ctx;if(!C||!SND.on)return;if(!NOISE){NOISE=C.createBuffer(1,C.sampleRate*.5,C.sampleRate);const d=NOISE.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
+function sndNoise(dur,vol,freq,delay){const C=SND.ctx;if(!C||!SND.on)return;if(!NOISE){NOISE=C.createBuffer(1,C.sampleRate*.5,C.sampleRate);const d=NOISE.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
  const t=C.currentTime+(delay||0),s=C.createBufferSource(),f=C.createBiquadFilter(),g=C.createGain();s.buffer=NOISE;f.type='bandpass';f.frequency.value=freq||1200;f.Q.value=1.2;
  g.gain.setValueAtTime(vol||.2,t);g.gain.exponentialRampToValueAtTime(.0005,t+dur);s.connect(f);f.connect(g);g.connect(SND.master);s.start(t);s.stop(t+dur+.02);}
 // at most a few of the same sound each second, so 16x speed does not turn into a roar
 function limited(k,ms){const n=performance.now();if(SND.last[k]&&n-SND.last[k]<ms)return false;SND.last[k]=n;return true;}
 const SFX={
  tap:()=>tone(1400,.03,'square',.04),
- roll:d=>{if(!limited('roll',220))return;for(let i=0;i<3;i++)noise(.035,.12,2600+i*500,i*.045);if(d&&d.ok)tone(880,.12,'triangle',.06,1,.14);},
- swing:()=>{if(limited('swing',200))noise(.09,.1,700);},
+ roll:d=>{if(!limited('roll',220))return;for(let i=0;i<3;i++)sndNoise(.035,.12,2600+i*500,i*.045);if(d&&d.ok)tone(880,.12,'triangle',.06,1,.14);},
+ swing:()=>{if(limited('swing',200))sndNoise(.09,.1,700);},
  hit:()=>{if(limited('hit',150))tone(160,.16,'sine',.35,.45);},
- dig:()=>{if(limited('dig',250)){noise(.12,.18,400);tone(90,.1,'sine',.2,.6);}},
+ dig:()=>{if(limited('dig',250)){sndNoise(.12,.18,400);tone(90,.1,'sine',.2,.6);}},
  make:()=>{tone(1320,.25,'triangle',.12);tone(1980,.3,'sine',.06,1,.03);},
- thud:()=>{tone(70,.35,'sine',.5,.5);noise(.2,.2,250);},
+ thud:()=>{tone(70,.35,'sine',.5,.5);sndNoise(.2,.2,250);},
  kill:()=>{tone(220,.3,'sawtooth',.08,.5);},
  down:()=>{tone(392,.4,'triangle',.15,.7);tone(311,.6,'triangle',.15,.7,.2);},
- raid:()=>{for(let i=0;i<3;i++)tone(110,.7,'sawtooth',.12,1.02,i*.5);noise(.5,.1,180);},
+ raid:()=>{for(let i=0;i<3;i++)tone(110,.7,'sawtooth',.12,1.02,i*.5);sndNoise(.5,.1,180);},
  raidEnd:()=>{[392,494,587].forEach((f,i)=>tone(f,.5,'triangle',.12,1,i*.12));},
  goal:()=>{[523,659,784,1047].forEach((f,i)=>tone(f,.35,'triangle',.13,1,i*.09));},
  dawn:()=>{tone(880,1.2,'sine',.06);tone(1320,1.4,'sine',.03,1,.05);},

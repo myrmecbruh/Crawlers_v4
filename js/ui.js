@@ -32,7 +32,10 @@ function tabColony(){
  const c=G.cols.find(c=>c.id===G.sel);let d='';
  if(G.over)d='<b class="k-bane">No one is left.</b>';
  else if(!c)d='<i>Tap a colonist above to see their sheet.</i>';
- else{d='<b>'+c.name+'</b><br>'+TRS.map((t,i)=>'<span class="chip'+(c.scars.includes(i)?' scar':'')+'">'+t+' '+c.tr[i]+(c.scars.includes(i)?' ✗6+':'')+'</span>').join('')+'<br>';
+ else{const fr=G.cols.filter(o=>o!==c).map(o=>({o,b:Math.trunc(bond(c,o))})).filter(x=>x.b);
+  d='<b>'+c.name+'</b> <span class="dim">'+(c.pers||[]).map(p=>'<span title="'+PERS[p]+'">'+p+'</span>').join(', ')+'</span>'+(c.wander>0?' <span class="k-bane">wandering</span>':'')+'<br>'+
+   '<span class="small2">'+(c.pers||[]).map(p=>p+': '+PERS[p]).join(' ')+'</span><br>'+
+   (fr.length?fr.map(x=>'<span class="chip">'+x.o.name+' '+(x.b>0?'<span style="color:#e08aa0">'+'♥'.repeat(x.b)+'</span>':'<span class="k-bane">'+'✗'.repeat(-x.b)+'</span>')+'</span>').join(''):'<i>no friends or grudges yet</i>')+'<br>'+TRS.map((t,i)=>'<span class="chip'+(c.scars.includes(i)?' scar':'')+'">'+t+' '+c.tr[i]+(c.scars.includes(i)?' ✗6+':'')+'</span>').join('')+'<br>';
   const sk=Object.keys(Object.assign({},c.sk,c.mk)).filter(s=>c.sk[s]||c.mk[s]);
   d+='<b>Skills</b> '+(sk.length?sk.map(s=>'<span class="chip">'+s+' '+(c.sk[s]||0)+' <span class="dim">marks '+(c.mk[s]||0)+'/'+([2,4,6][c.sk[s]||0]||'–')+'</span></span>').join(''):'<i>none yet: skills come from failing</i>')+'<br>';
   d+='<table>'+AREA.map((a,i)=>'<tr><td>'+a+'</td><td>'+itn(c.worn[i])+'</td><td class="pp">'+'✚'.repeat(c.wd[i])+'</td></tr>').join('')+
@@ -43,8 +46,8 @@ function tabColony(){
  h+='<div class="dim small">Every load and every update starts a new world.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</div>';
  return h;
 }
-const TOOLS=[['look','Look'],['dig','Dig'],['place','Place'],['stock','Stock'],['hearth','Hearth'],['bench','Bench'],['trap','Trap'],['cancel','Cancel']];
-const HINT={trap:'Trap: tap a tile. Needs 1 metal token. A raider stepping on it may be badly hurt; it is spent either way.',look:'Tap a tile or a person to inspect.',dig:'Tap any rock to mark that voxel for digging: the top of a tile, or the side of a wall or outcrop to tunnel into it. Tap again to unmark.',place:'Place stone: tap a tile to have a stone token set on it as a voxel.',stock:'Stockpile: tap tiles to add or remove stockpile ground.',hearth:'Hearth: tap a tile. Needs 2 stone tokens; burns wood for warmth and cooks.',bench:'Workbench: tap a tile. Needs 2 wood tokens; makes tools and gear.',cancel:'Tap a marked tile to clear the order.'};
+const TOOLS=[['look','Look'],['dig','Dig'],['place','Place'],['stock','Stock'],['hearth','Hearth'],['bench','Bench'],['trap','Trap'],['field','Field'],['cancel','Cancel']];
+const HINT={field:'Field: tap ground tiles to add or remove a field. Someone sows a tuber there; the crop ripens in a day and a half and keeps growing back, except in winter.',trap:'Trap: tap a tile. Needs 1 metal token. A raider stepping on it may be badly hurt; it is spent either way.',look:'Tap a tile or a person to inspect.',dig:'Tap any rock to mark that voxel for digging: the top of a tile, or the side of a wall or outcrop to tunnel into it. Tap again to unmark.',place:'Place stone: tap a tile to have a stone token set on it as a voxel.',stock:'Stockpile: tap tiles to add or remove stockpile ground.',hearth:'Hearth: tap a tile. Needs 2 stone tokens; burns wood for warmth and cooks.',bench:'Workbench: tap a tile. Needs 2 wood tokens; makes tools and gear.',cancel:'Tap a marked tile to clear the order.'};
 // every material an item could be made of, whether or not there is any: the buttons stay put
 const MATS=k=>{const r=[];for(let m=1;m<M.length;m++)if(ITEM[k].fam.includes(M[m].f)&&m!==18&&m!==19&&m!==20)r.push(m);return r;};
 function tabOrders(){
@@ -110,6 +113,7 @@ function tap(p){
  else if(!inner){info={x:p.x,y:p.y,t:'Orders only work inside the walls.'};}
  else if(tool==='dig'){const z=p.z!=null?p.z:topZ(p.x,p.y)-1,dk=TK(p.x,p.y,z);if(G.digs[dk])delete G.digs[dk];else if(z>=1&&G.vox[VI(p.x,p.y,z)])G.digs[dk]=1;}
  else if(tool==='stock'){if(G.stock[k])delete G.stock[k];else G.stock[k]=1;}
+ else if(tool==='field'){G.fields=G.fields||{};if(G.fields[k]){delete G.fields[k];const f=featAt(p.x,p.y);if(f&&f.k==='crop')G.feats=G.feats.filter(q=>q!==f);}else if(G.mask[I(p.x,p.y)]===2&&!featAt(p.x,p.y))G.fields[k]=1;}
  else if(tool==='cancel'){for(const dk in G.digs)if(dk.startsWith(k+','))delete G.digs[dk];G.sites=G.sites.filter(s=>!(s.x===p.x&&s.y===p.y&&s.kind!=='bill'));}
  else if(!G.sites.some(s=>s.x===p.x&&s.y===p.y)&&!featAt(p.x,p.y)){
   if(tool==='place')G.sites.push({id:G.nid++,kind:'voxel',x:p.x,y:p.y,spec:{fam:'stone'},need:1,have:0,m:0});
