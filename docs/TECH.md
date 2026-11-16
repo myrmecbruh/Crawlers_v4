@@ -58,6 +58,8 @@
 - [slop] How: every box has a fixed height (long text is cut or scrolls inside it), lists keep a slot for every possible entry (six colonist slots, every material on the workbench), and buttons are disabled rather than hidden. The camera bar is one fixed row; the date sits on its own line below it.
 - [gospel] Buttons flash when tapped, as feedback.
 - [slop] A button lights up while pressed and flashes the accent colour for a quarter second when it acts.
+- [gospel] Workbench buttons whose material is on hand are highlighted.
+- [slop] Highlighted in green when you hold at least the item's cost in that material.
 - [slop] Workbench items can be queued without the materials; queued items wait for them. Each material button shows how many are queued (+n) and how many tokens you have.
 - [slop] Each workbench item shows, on the right, how many are queued (+n) and how many have been made (lying in the plot, worn or held).
 - [slop] The Cards tab lists every kind of card in a fixed row: what it does, whether it is a boon or bane, how long it lasts, and how many are in the draw pile, in the discard and in play today.

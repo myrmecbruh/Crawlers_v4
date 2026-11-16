@@ -59,7 +59,7 @@ function tabOrders(){
  for(const k in ITEM){const it=ITEM[k];
   const qn=G.sites.filter(s=>s.kind==='bill'&&s.it===k).length,hv=owned(k);
   h+='<div class="bill"><div class="bn"><span class="bnn">'+it.n+' <span class="dim">×'+it.cost+'</span></span><span class="bt">'+(qn?'<span class="pp">+'+qn+'</span> ':'')+'<b>'+hv+'</b> <span class="dim">made</span></span></div><div class="grid3">'+MATS(k).map(m=>{const q=G.sites.filter(s=>s.kind==='bill'&&s.it===k&&s.m===m).length;
-   return'<button class="mat"'+(!b?' disabled':'')+' data-a="bill" data-v="'+k+':'+m+'"><i style="background:'+M[m].c+'"></i><span class="mn">'+M[m].n+'</span><span class="mq">'+(q?'+'+q:'')+'</span><span class="mh">'+(n.m[m]||0)+'</span></button>';}).join('')+'</div></div>';}
+   return'<button class="mat'+(b&&(n.m[m]||0)>=it.cost?' have':'')+'"'+(!b?' disabled':'')+' data-a="bill" data-v="'+k+':'+m+'"><i style="background:'+M[m].c+'"></i><span class="mn">'+M[m].n+'</span><span class="mq">'+(q?'+'+q:'')+'</span><span class="mh">'+(n.m[m]||0)+'</span></button>';}).join('')+'</div></div>';}
  h+='</div>';
  h+=box('<b>Pending</b><br>'+(G.sites.length?G.sites.map(s=>'<span class="chip pend">'+(s.kind==='bill'?M[s.m].n+' '+ITEM[s.it].n:s.kind)+' '+s.have+'/'+s.need+' <a data-a="unsite" data-v="'+s.id+'">✕</a></span>').join(''):'<i>nothing queued</i>'),'86px','scroll');
  return h;
