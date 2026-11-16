@@ -42,6 +42,8 @@ function tabColony(){
 }
 const TOOLS=[['look','Look'],['dig','Dig'],['place','Place'],['stock','Stock'],['hearth','Hearth'],['bench','Bench'],['cancel','Cancel']];
 const HINT={look:'Tap a tile or a person to inspect.',dig:'Tap any rock to mark that voxel for digging: the top of a tile, or the side of a wall or outcrop to tunnel into it. Tap again to unmark.',place:'Place stone: tap a tile to have a stone token set on it as a voxel.',stock:'Stockpile: tap tiles to add or remove stockpile ground.',hearth:'Hearth: tap a tile. Needs 2 stone tokens; burns wood for warmth and cooks.',bench:'Workbench: tap a tile. Needs 2 wood tokens; makes tools and gear.',cancel:'Tap a marked tile to clear the order.'};
+// how many of an item exist: lying in the plot, worn or held
+function owned(k){let n=0;for(const q in G.tok)for(const t of G.tok[q])if(t.it===k)n++;for(const c of G.cols)for(const t of c.worn.concat(c.hands))if(t&&t.it===k)n++;return n;}
 // every material an item could be made of, whether or not there is any: the buttons stay put
 const MATS=k=>{const r=[];for(let m=1;m<M.length;m++)if(ITEM[k].fam.includes(M[m].f)&&m!==18&&m!==19&&m!==20)r.push(m);return r;};
 function tabOrders(){
@@ -51,7 +53,8 @@ function tabOrders(){
  const b=bench(),n=counts();
  h+='<div class="box"><div class="line"><b>Workbench</b> <span class="dim">'+(b?'+queued · tokens you have':'build one to make things')+'</span></div>';
  for(const k in ITEM){const it=ITEM[k];
-  h+='<div class="bill"><div class="bn">'+it.n+' <span class="dim">×'+it.cost+'</span></div><div class="grid3">'+MATS(k).map(m=>{const q=G.sites.filter(s=>s.kind==='bill'&&s.it===k&&s.m===m).length;
+  const qn=G.sites.filter(s=>s.kind==='bill'&&s.it===k).length,hv=owned(k);
+  h+='<div class="bill"><div class="bn"><span class="bnn">'+it.n+' <span class="dim">×'+it.cost+'</span></span><span class="bt">'+(qn?'<span class="pp">+'+qn+'</span> ':'')+'<b>'+hv+'</b> <span class="dim">made</span></span></div><div class="grid3">'+MATS(k).map(m=>{const q=G.sites.filter(s=>s.kind==='bill'&&s.it===k&&s.m===m).length;
    return'<button class="mat"'+(!b?' disabled':'')+' data-a="bill" data-v="'+k+':'+m+'"><i style="background:'+M[m].c+'"></i><span class="mn">'+M[m].n+'</span><span class="mq">'+(q?'+'+q:'')+'</span><span class="mh">'+(n.m[m]||0)+'</span></button>';}).join('')+'</div></div>';}
  h+='</div>';
  h+=box('<b>Pending</b><br>'+(G.sites.length?G.sites.map(s=>'<span class="chip pend">'+(s.kind==='bill'?M[s.m].n+' '+ITEM[s.it].n:s.kind)+' '+s.have+'/'+s.need+' <a data-a="unsite" data-v="'+s.id+'">✕</a></span>').join(''):'<i>nothing queued</i>'),'86px','scroll');
@@ -73,11 +76,20 @@ function tabParty(){
  h+=box('Beyond the gate: '+(G.zone.on?'an open zone, '+G.crit.length+' creatures stirring.':'nothing you can see. A new place, with a new shape, is generated each time; it is forgotten when everyone is back inside.'),'62px','clip dim');
  return h;
 }
-function tabCards(){const f=d=>'<span class="chip crd k-'+CARD[d.k].kind+'">'+CARD[d.k].n+(CARD[d.k].pips?' '+pips(d.pips,CARD[d.k].pips,'◆'):'')+'</span>';
- return box('<b>Draw pile</b> ('+G.deck.length+')<br>'+G.deck.map(f).join(''),'150px','scroll')+box('<b>Discard</b> ('+G.discard.length+')<br>'+G.discard.map(f).join(''),'150px','scroll')+box('One card is drawn each dawn [slop]. Caches beyond the gate hold new cards.','44px','clip dim');}
+// Every kind of card has its own fixed row: what it does, and how many are in the draw pile, the discard and in play today.
+function tabCards(){
+ const cnt=(arr,k)=>arr.filter(d=>d.k===k).length,today=G.card;
+ let h='<div class="box"><div class="line"><b>The deck</b> <span class="dim">one card is drawn each dawn and acts until the next</span></div>';
+ h+='<div class="crow hd"><span class="cn"></span><span class="cc">draw</span><span class="cc">disc</span><span class="cc">today</span></div>';
+ for(const k in CARD){const C=CARD[k];
+  h+='<div class="crow"><span class="cn k-'+C.kind+'"><b>'+C.n+'</b> <span class="dim">'+C.kind+(C.pips?', lasts '+C.pips+' draw'+(C.pips>1?'s':''):'')+'</span><br><i>'+C.t+'</i></span>'+
+   '<span class="cc">'+cnt(G.deck,k)+'</span><span class="cc">'+cnt(G.discard,k)+'</span><span class="cc">'+(today&&today.k===k?'◆':'')+'</span></div>';}
+ h+='</div>';
+ h+=box('Cards wear out: each draw of a card with a lasting count uses one ◆, and at none it leaves the deck. Caches beyond the gate hold new cards; a mapped zone brings home a Chart.','62px','clip dim');
+ return h;}
 function tabLog(){return'<div class="box log">'+G.log.slice().reverse().map(l=>'<div'+(/FAIL|DOWN|dies|wounded/.test(l)?' class="k-bane"':'')+'>'+esc(l)+'</div>').join('')+'</div>';}
 function render(){
- $('date').textContent=SEASON[season()]+' '+(day()%6+1)+', year '+(Math.floor(day()/24)+1)+' · '+(night()?'night':tod()<60?'morning':tod()<120?'midday':'evening');
+ $('dtxt').textContent=SEASON[season()]+' '+(day()%6+1)+', year '+(Math.floor(day()/24)+1)+' · '+(night()?'night':tod()<60?'morning':tod()<120?'midday':'evening');
  $('tilt').classList.toggle('on',!!cam.tilt);
  document.querySelectorAll('#spd button').forEach(b=>b.classList.toggle('on',+b.dataset.v===G.speed));
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===tab));
@@ -157,6 +169,8 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){save();cle
 function checkUpdate(){if(!window.VERSION)return;fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{t=t.trim();
  if(t&&t!==window.VERSION){save();location.replace(location.pathname+'?v='+encodeURIComponent(t));}}).catch(()=>{});}
 setInterval(checkUpdate,120000);
+// The world is only drawn when something changes, so an idle game shows 0 fps.
+setInterval(()=>{$('fps').textContent=FPS.n+' fps'+(FPS.n?' · '+(FPS.ms/FPS.n).toFixed(1)+' ms':'');FPS.n=0;FPS.ms=0;},1000);
 // Every load starts a new world: opening the link, refreshing, and the automatic reload after an update.
 newGame((Math.random()*1e9)|0);
 // the camera looks at the camp: the middle of the stockpile

@@ -381,7 +381,10 @@ function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#
 const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
 const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
 let PAL=null;
-function draw(){
+// frames drawn in the last second and their average cost, for the counter on screen
+const FPS={n:0,ms:0};
+function draw(){const t0_=performance.now();try{draw_();}finally{FPS.n++;FPS.ms+=performance.now()-t0_;}}
+function draw_(){
  dirty=false;if(!G)return;
  if(!gl){const g=cv.getContext&&null;return;}
  if(!TP)glInit();

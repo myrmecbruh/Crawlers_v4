@@ -59,6 +59,10 @@
 - [gospel] Buttons flash when tapped, as feedback.
 - [slop] A button lights up while pressed and flashes the accent colour for a quarter second when it acts.
 - [slop] Workbench items can be queued without the materials; queued items wait for them. Each material button shows how many are queued (+n) and how many tokens you have.
+- [slop] Each workbench item shows, on the right, how many are queued (+n) and how many have been made (lying in the plot, worn or held).
+- [slop] The Cards tab lists every kind of card in a fixed row: what it does, whether it is a boon or bane, how long it lasts, and how many are in the draw pile, in the discard and in play today.
+- [gospel] An FPS counter is on screen.
+- [slop] It sits after the date under the top bar: frames drawn in the last second and how long each took on average. The world is only drawn when something changes, so an idle game shows 0 fps.
 - [slop] The camera cannot be dragged off the plot (or the zone while it is open), and a ⌂ button brings it back to the camp.
 - [gospel] Both orientations. The screen is divided in half into roughly two squares: a visual side (the world) and an interface side.
 - [slop] Portrait: world on top, interface below. Landscape: world left, interface right.
