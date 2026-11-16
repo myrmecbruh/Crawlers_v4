@@ -370,16 +370,18 @@ function draw(){
  const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1;
  const top=(x,y)=>G.hgt[I(x,y)];
  for(const k in G.stock){const p=k.split(','),x=+p[0],y=+p[1];decal(dc,x,y,top(x,y),.94,.75,.25,.55);}
- for(const k in G.digs){const p=k.split(','),x=+p[0],y=+p[1];decal(dc,x,y,top(x,y),.86,.24,.24,-.45);}
+ for(const k in G.digs){const p=tparse(k),x=p[0],y=p[1],z=p[2];
+  if(z===top(x,y)-1)decal(dc,x,y,top(x,y),.86,.24,.24,-.45);
+  else{const e=paint(DYN,7,7,3,3,(ax,ay)=>{rc(ax-3,ay-3,7,7,'#5a1010');rc(ax-2,ay-2,5,5,'#e04040');rc(ax-1,ay-1,3,3,'#f0a0a0');});if(e)quad(ov,e,x+.5,y+.5,z+.5);}} // a voxel inside rock: a marker drawn over everything
  for(const q of G.sites){decal(dc,q.x,q.y,top(q.x,q.y),.47,.78,1,.85);
   const e=paint(DYN,q.need*5+2,6,1,1,(ax,ay)=>{for(let n=0;n<q.need;n++)rc(ax+n*5,ay,4,4,n<q.have?'#7fd0ff':'#234');});if(e)quad(dy,e,q.x+.5,q.y+.5,top(q.x,q.y),-(q.need*5)/2+1);}
  for(const f of G.feats){if(!(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier')||!seenAt(f.x,f.y))continue;
   const key='f'+HH()+f.k+(f.m||'')+(f.k==='hearth'&&f.fuel>0?'l':'');
   const e=stat(key,40,46,20,38,(ax,ay)=>{shadow(ax,ay+1,FSH[f.k]||6);featSpr(f,ax,ay);});quad(st,e,f.x+.5,f.y+.5,f.z!=null?f.z:top(f.x,f.y));}
- for(const k in G.tok){const p=k.split(','),x=+p[0],y=+p[1],a=G.tok[k];if(!a.length||!seenAt(x,y))continue;const ff=featAt(x,y)?4:0;
+ for(const k in G.tok){const p=tparse(k),x=p[0],y=p[1],z=p[2],a=G.tok[k];if(!a.length||!seenAt(x,y))continue;const ff=z===top(x,y)&&featAt(x,y)?4:0;
   const key='t'+HH()+ff+a.map(tkey).join(',');
   const e=stat(key,42,34,18,24,(ax,ay)=>{const nc=Math.min(3,a.length);shadow(ax-13+nc*4.5,ay+3+ff,3+nc*4);for(let n=0;n<a.length;n++)tokSpr(a[n],ax-13+(n%3)*9,ay-4-Math.floor(n/3)*8+ff);});
-  quad(st,e,x+.5,y+.5,top(x,y));}
+  quad(st,e,x+.5,y+.5,z);}
  if(!G.gateOpen&&G.gateZ!=null){const e=paint(DYN,18,26,9,24,(ax,ay)=>{rc(ax-8,ay-22,16,24,'#3a2c20');rc(ax-8,ay-12,16,2,'#aab3bd');});if(e)quad(dy,e,47.5,24.5,G.gateZ);}
  // moving things stand between the tile they left and the one they are entering
  const pos=o=>{if(o._mv===G.t&&al<1&&o._px!=null){const pz=o._pz!=null?o._pz:top(o._px,o._py),z=o.z!=null?o.z:top(o.x,o.y);

@@ -15,6 +15,7 @@ function setCol(x,y,h,base,top){touch(x,y);for(let z=0;z<Z;z++)G.vox[VI(x,y,z)]=
 const topZ=(x,y)=>G.hgt[I(x,y)];
 const topMat=(x,y)=>{const h=topZ(x,y);return h?G.vox[VI(x,y,h-1)]:0;};
 const day=()=>Math.floor(G.t/DAY), tod=()=>G.t%DAY, night=()=>tod()>=180, season=()=>Math.floor(day()/6)%4;
+function moveTop(x,y,from,to){if(from===to)return;const a=G.tok[TK(x,y,from)];if(!a)return;delete G.tok[TK(x,y,from)];for(const t of a)addTok(x,y,t,0,to);}
 function featAt(x,y){return G.feats.find(f=>f.x===x&&f.y===y);}
 // Region shapes. G.mask: 0 void, 1 wall, 2 ground. A region is a wobbly blob plus three lobes minus one cove,
 // with a straight neck to the gate so the plot and the zone always meet at x=47/48. [slop]
@@ -64,7 +65,9 @@ function outcrops(n,x0,x1,y0,y1,s,away){
    setCol(x,y,t0-(r>R-.6&&hash2(y,x,s)<.5?1:0),1,1);G.mask[I(x,y)]=1;}
   for(let t=-len-1;t<=len+1;t++){const x=cx+(alongX?t:0),y=cy+(alongX?0:t),i=I(x,y);
    if(G.mask[i]===1&&G.hgt[i]>g0+2){for(let z=0;z<g0;z++)G.vox[VI(x,y,z)]=G.vox[VI(x,y,z)]||1;G.vox[VI(x,y,g0)]=0;G.vox[VI(x,y,g0+1)]=0;}
-   else if(G.mask[i]===2){const h=Math.max(g0-1,Math.min(g0+1,G.hgt[i]));if(h!==G.hgt[i])setCol(x,y,h,1,topMat(x,y)||1);}}}
+   else if(G.mask[i]===2){const h=Math.max(g0-1,Math.min(g0+1,G.hgt[i]));if(h!==G.hgt[i])setCol(x,y,h,1,topMat(x,y)||1);}}
+  if(hash2(cx,cy,s)<.6&&x0>=PW){const t=Math.round((hash2(cy,cx,s)-.5)*R),x=cx+(alongX?t:0),y=cy+(alongX?0:t);
+   if(G.hgt[I(x,y)]>g0+2&&!featAt(x,y))G.feats.push({id:G.nid++,k:'vein',x,y,z:g0,left:FEAT.vein.uses,grow:0});}}
 }
 function scatter(k,n,x0,x1,y0,y1,avoid){
  for(let i=0,g=0;i<n&&g<2000;g++){const x=x0+ri(x1-x0+1),y=y0+ri(y1-y0+1);
@@ -81,12 +84,19 @@ function mkCol(x,y){
   down:false,downT:0,home:false,by:null,scars:[],party:false,armed:false,cd:0,pen:0,asleep:false};
  G.cols.push(c);return c;
 }
-function addTok(x,y,t,pref){
- const ok=(tx,ty)=>tx>=0&&ty>=0&&tx<W&&ty<H&&G.mask[I(tx,ty)]===2&&(G.tok[K(tx,ty)]||[]).length<6&&Math.abs(topZ(tx,ty)-topZ(x,y))<=2;
+// Tokens lie on a floor: the top of a tile, or the floor of a tunnel. Their key is "x,y,z" with z the floor height.
+const TK=(x,y,z)=>x+','+y+','+z,tparse=k=>{const p=k.split(',');return[+p[0],+p[1],+p[2]];};
+const isFloor=(x,y,z)=>z>=1&&z<=Z&&G.vox[VI(x,y,z-1)]!==0&&(z>=Z||!G.vox[VI(x,y,z)]);
+// a floor on tile (x,y) within two voxels of height z, or -1
+function floorNear(x,y,z){if(x<0||y<0||x>=W||y>=H||!G.hgt[I(x,y)])return-1;for(const d of[0,-1,1,-2,2]){const f=z+d;if(f<1||f>Z||!isFloor(x,y,f))continue;
+ if(f>=G.hgt[I(x,y)]&&G.mask[I(x,y)]!==2)continue;return f;}return-1;}
+function addTok(x,y,t,pref,z){
+ if(z==null)z=G.hgt[I(x,y)];let fz=-1;
+ const ok=(tx,ty)=>{fz=floorNear(tx,ty,z);return fz>=0&&(G.tok[TK(tx,ty,fz)]||[]).length<6;};
  for(let pass=pref?0:1;pass<2;pass++)for(let r=0;r<8;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
   if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;const tx=x+dx,ty=y+dy;
-  if(!ok(tx,ty)||(pass===0&&!G.stock[K(tx,ty)]))continue;
-  (G.tok[K(tx,ty)]=G.tok[K(tx,ty)]||[]).push(t);return;}
+  if(!ok(tx,ty)||(pass===0&&!(G.stock[K(tx,ty)]&&fz===G.hgt[I(tx,ty)])))continue;
+  (G.tok[TK(tx,ty,fz)]=G.tok[TK(tx,ty,fz)]||[]).push(t);return;}
 }
 function newGame(seed){
  G={v:1,seed,rs:seed,t:60,speed:1,vox:new Uint8Array(W*H*Z),hgt:new Uint8Array(W*H),rev:new Uint8Array(W*H),keep:new Uint8Array(W*H),mask:new Uint8Array(W*H),
@@ -135,7 +145,8 @@ function genZone(){
  for(let i=0,g=0;i<5&&g<500;g++){const x=58+ri(34),y=3+ri(42);if(G.mask[I(x,y)]===2){mkRat(x,y);i++;}}
 }
 function forgetZone(){
- for(let y=0;y<H;y++)for(let x=PW;x<W;x++){if(G.keep[I(x,y)])continue;setCol(x,y,0,0,0);G.mask[I(x,y)]=0;G.rev[I(x,y)]=0;delete G.tok[K(x,y)];}
+ for(let y=0;y<H;y++)for(let x=PW;x<W;x++){if(G.keep[I(x,y)])continue;setCol(x,y,0,0,0);G.mask[I(x,y)]=0;G.rev[I(x,y)]=0;}
+ for(const k in G.tok){const p=tparse(k);if(p[0]>=PW&&!G.keep[I(p[0],p[1])])delete G.tok[k];}
  G.feats=G.feats.filter(f=>f.x<PW||G.keep[I(f.x,f.y)]);G.crit=[];G.zone.on=false;
  log('The fog closes. What lay beyond the gate is forgotten.');
 }
@@ -153,4 +164,6 @@ function load(){try{const s=localStorage.getItem('crawlers4');if(!s)return false
  if(o.gateZ==null)o.gateZ=o.hgt[I(47,24)];
  // saves from before 3D movement: give everyone a height and let them choose new jobs
  for(const c of o.cols.concat(o.crit))if(c.z==null){c.z=o.hgt[I(c.x,c.y)];c.job=null;c.path=[];o.res={};}
+ // saves from before tokens and digs had heights
+ for(const nm of['tok','digs']){const n={};let old=false;for(const k in o[nm]){const p=k.split(',');if(p.length===2){old=true;const h=o.hgt[I(+p[0],+p[1])];n[k+','+(nm==='tok'?h:h-1)]=o[nm][k];}else n[k]=o[nm][k];}if(old){o[nm]=n;o.res={};}}
  G=o;markAll();return true;}catch(e){return false;}}

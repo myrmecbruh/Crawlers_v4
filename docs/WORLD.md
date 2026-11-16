@@ -9,7 +9,10 @@
 ## Moving in 3D
 - [gospel] Characters can walk under overhangs.
 - [slop] A standing spot is a tile and a floor height: rock underneath and two voxels of room (a person is two voxels tall). A tile can have several spots, such as the floor under a ledge and the top of the ledge. A step goes to a side neighbour and at most one voxel up or down, with headroom for the climb. Rats follow the same rule.
-- [slop] Tokens, features, digging and building still use the top of each tile. Digging out a tunnel is not possible yet.
+- [gospel] Tokens and features can sit under rock, and colonists can dig tunnels.
+- [slop] The Dig tool marks any voxel you tap: the top of a tile, or the side of a wall or outcrop to tunnel into it. A voxel is dug from a side neighbour standing within one voxel of its height. A dug top lowers the tile; a dug voxel inside rock leaves a hollow. The rock dug out drops as a token where the digger stands.
+- [slop] Tokens lie on a floor (the top of a tile or a tunnel floor); tokens on a tile's top move with it when it is dug down or built up. Some zone tunnels hold an iron vein.
+- [slop] Building still places voxels on the top of a tile only.
 - [slop] The gate is an archway: a two-voxel passage with the wall carried over it. Each zone has three granite outcrops with a tunnel through them, and the plot has one, away from the start.
 
 ## Shaping terrain
