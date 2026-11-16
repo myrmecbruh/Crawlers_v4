@@ -32,6 +32,9 @@
 - [gospel] Every voxel is shaped by all 26 of its neighbours, so overhangs, arches, windows and undercut cliffs are drawn properly.
 - [slop] How: the solid is a smooth field in which each voxel's faces fade over a width set by its material. It is sampled four times per voxel and turned into a mesh (surface nets). Lone edges round off, inside corners fill in, flat faces stay on the grid. Mesh corners are lit by ambient occlusion from the field.
 - [gospel] Every material has its own voxel geometry: ash must not look like stone or glass.
+- [gospel] Every voxel has variations and a random rotation, and every variation joins seamlessly with all 26 possible neighbours.
+- [slop] Each voxel gets one of four variants and one of four quarter-turns about the vertical, from a hash of its position. The variant sets how far each exposed face bulges out or sinks in (up to about a tenth of a voxel), whether one exposed top corner is chipped off (three in four voxels), and, turned by the rotation, the pattern its surface is pushed into. Each voxel also gets its own slight tone.
+- [slop] How they join: faces against another voxel never move; a mesh corner's push is the blend of the patterns of every voxel among its 26 neighbours that reaches it, weighted by how far each reaches, so two different variants or turns never tear where they meet.
 - [slop] Real geometry, not just surface: ash rounds over 0.4 of a voxel and slumps into soft mounds; rubble's surface is pushed into knobbly lumps up to a fifth of a voxel; granite keeps firm blocks with small bevelled edges and blotchy mottling; slag-glass (the ruin walls) is pushed into flat tilted facets, brighter, with rare sparkles. Anything else: a plain cube.
 - [slop] The shaping is looks only: walking, digging and building still work on whole voxels.
 - [slop] Ruin walls get window holes and zone cliffs get undercut ledges.

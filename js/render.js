@@ -31,15 +31,33 @@ function panBy(f0,dx,dy){const K=camK(),d=unproj(K,dx,dy);cam.fx=Math.max(0,Math
 //   p pillow (ash): wide rounding, so voxels slump into soft mounds    l lumpy (rubble): pushed into knobbly stones
 //   b block (granite): firm blocks with small bevelled edges, shaded in flat planes    c crystal (slag-glass): flat tilted facets
 //   h hard: a plain cube (anything else)
+// Each voxel also varies: see 'Voxel variety' below.
 const STYLE={1:'b',2:'l',3:'c',19:'p'},SW_={p:.4,l:.2,b:.14,c:.05,h:.05},RES=4,CH=16,PADS=3;
 const styleOf=m=>STYLE[m]||'h';
 function vsolid(i,j,k){if(k<0)return 1;if(i<0||j<0||i>=W||j>=H||k>=Z)return 0;return G.vox[(k*H+j)*W+i];}
-function contrib(m,du,dv,dz){const st=styleOf(m),w=SW_[st],lim=.5+w;if(du>=lim||dv>=lim||dz>=lim)return 0;
- const ku=du<=.5-w?1:(lim-du)/(2*w),kv=dv<=.5-w?1:(lim-dv)/(2*w),kz=dz<=.5-w?1:(lim-dz)/(2*w);
- return ku*kv*kz;}
+// ---- Voxel variety. Every voxel has a variant (0-3) and a turn (0-3 quarter turns about the vertical), picked from a
+// hash of its position. The variant sets how far each exposed face bulges out or sinks in, whether one exposed top corner
+// is chipped off, and, turned by the turn, the pattern its surface is pushed into. Faces against another voxel never move,
+// so neighbours always meet. [slop] all amounts
+const VAR_OFF={p:.1,l:.11,b:.09,c:.09,h:.05},VAR_CHIP={p:.3,l:.34,b:.42,c:.46,h:.3};
+let PC=null,PCo=null; // the current chunk's cache of voxel params, and its origin/size
+function mkParams(i,j,k){const m=vsolid(i,j,k);if(!m||k<0)return m?{m,st:'h',w:.05,lo:[0,0,0],hi:[0,0,0],chip:null,r:0,v:0}:null;
+ const st=styleOf(m),w=SW_[st],A=VAR_OFF[st],h=n=>hash3(i,j,k,n),v=Math.floor(h(11)*4),r=Math.floor(h(12)*4);
+ const ex=[!vsolid(i-1,j,k),!vsolid(i,j-1,k),!vsolid(i,j,k-1)],ex2=[!vsolid(i+1,j,k),!vsolid(i,j+1,k),!vsolid(i,j,k+1)];
+ const lo=[0,0,0],hi=[0,0,0];for(let a=0;a<3;a++){if(ex[a]&&a<2)lo[a]=(h(20+a)-.5)*2*A;if(ex2[a])hi[a]=(h(23+a)-.5)*2*A;}
+ let chip=null;if(ex2[2]&&VAR_CHIP[st]&&h(30)<.75){const sx=v&1?1:-1,sy=v&2?1:-1;
+  if((sx<0?ex[0]:ex2[0])&&(sy<0?ex[1]:ex2[1]))chip={sx,sy,c:VAR_CHIP[st]*(.6+.4*h(31))};}
+ return{m,st,w,lo,hi,chip,r,v};}
+function getP(i,j,k){if(PC){const a=i-PCo[0],b=j-PCo[1],c=k-PCo[2];if(a>=0&&b>=0&&c>=0&&a<PCo[3]&&b<PCo[3]&&c<PCo[4]){const q=(c*PCo[3]+b)*PCo[3]+a;
+  let p=PC[q];if(p===undefined)p=PC[q]=mkParams(i,j,k);return p;}}return mkParams(i,j,k);}
+// one voxel's share of the field at a point
+function contribP(P,i,j,k,x,y,z){const w=P.w,d=[x-i-.5,y-j-.5,z-k-.5];let kk=1;
+ for(let a=0;a<3;a++){const ad=Math.abs(d[a]),lim=.5+w+(d[a]<0?P.lo[a]:P.hi[a]);if(ad>=lim)return 0;if(ad>lim-2*w)kk*=(lim-ad)/(2*w);}
+ if(P.chip){const s=P.chip.sx*d[0]+P.chip.sy*d[1]+d[2],cut=1.5-P.chip.c;if(s>cut-.08)kk*=Math.max(0,Math.min(1,(cut+.08-s)/.16));}
+ return kk;}
 function fieldAt(x,y,z,own){const i0=Math.floor(x),j0=Math.floor(y),k0=Math.floor(z);let f=0,best=0,bm=0;
- for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const i=i0+di,j=j0+dj,k=k0+dk,m=vsolid(i,j,k);if(!m)continue;
-  const c=contrib(m,Math.abs(x-i-.5),Math.abs(y-j-.5),Math.abs(z-k-.5));f+=c;if(c>best){best=c;bm=m;}}
+ for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const i=i0+di,j=j0+dj,k=k0+dk,P=getP(i,j,k);if(!P)continue;
+  const c=contribP(P,i,j,k,x,y,z);f+=c;if(c>best){best=c;bm=P.m;}}
  return own?bm:f;}
 // repeating noise, so a pattern runs on unbroken from one voxel into the next
 function hash3(x,y,z,s){return hash2(x,y*131+z*977,s);}
@@ -48,18 +66,33 @@ function warp(u,v,z,o,n){const X=u*n,Y=v*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(
  o[0]=o[1]=o[2]=0;for(let c=0;c<8;c++){const a=c&1,b=c>>1&1,d=c>>2,k=(w(xi+a)+n*w(yi+b)+n*n*w(zi+d))*3,f=(a?fx:1-fx)*(b?fy:1-fy)*(d?fz:1-fz);
   o[0]+=WT[k]*f;o[1]+=WT[k+1]*f;o[2]+=WT[k+2]*f;}}
 const tri=x=>Math.abs(x-Math.floor(x)-.5)*2-.5;
-// how far a mesh corner on a surface of each style is pushed: rubble into lumps, ash into a slump, glass into facets
-function push(st,x,y,z,o){
- if(st==='l'){warp(x,y,z,o,3);o[0]*=.42;o[1]*=.42;o[2]*=.42;}
- else if(st==='p'){warp(x+3.7,y+1.3,z,o,2);o[0]*=.2;o[1]*=.2;o[2]=o[2]*.12-.06;}
- else if(st==='c'){o[0]=tri(2*y+2*z+.25)*.13;o[1]=tri(2*x+2*z+.6)*.13;o[2]=tri(2*x-2*y+.4)*.1;}
+// The pattern a voxel pushes its surface into, in its own turned frame (lx,ly,lz from its centre; v its variant):
+// rubble into lumps, ash into a slump, granite into a few flat chips, glass into facets. o is the push.
+function pattern(st,lx,ly,lz,v,o){const q=v*1.37;
+ if(st==='l'){warp(lx+q,ly+q*.7,lz+q*.3,o,3);o[0]*=.42;o[1]*=.42;o[2]*=.42;}
+ else if(st==='p'){warp(lx+q+3.7,ly+1.3,lz,o,2);o[0]*=.2;o[1]*=.2;o[2]=o[2]*.12-.06;}
+ else if(st==='c'){o[0]=tri(2*ly+2*lz+.25+q)*.13;o[1]=tri(2*lx+2*lz+.6-q)*.13;o[2]=tri(2*lx-2*ly+.4+q)*.1;}
+ else if(st==='b'){o[0]=tri(1.5*ly+lz+q)*.06;o[1]=tri(1.5*lx-lz+q*.5)*.06;o[2]=tri(lx+ly+q)*.05;}
  else o[0]=o[1]=o[2]=0;}
+// A mesh corner's push blends the patterns of every voxel among the 26 neighbours (and itself) that reaches it, weighted by
+// how much each reaches: deep in one voxel's face it is that voxel's pattern, at a shared edge the two blend, so the
+// surface never tears where two different variants or turns meet.
+const PB=[0,0,0];
+function pushAt(x,y,z,o){const i0=Math.floor(x),j0=Math.floor(y),k0=Math.floor(z);let ws=0;o[0]=o[1]=o[2]=0;
+ for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const i=i0+di,j=j0+dj,k=k0+dk,P=getP(i,j,k);if(!P)continue;
+  const kw=contribP(P,i,j,k,x,y,z);if(kw<=0)continue;let lx=x-i-.5,ly=y-j-.5;const lz=z-k-.5;
+  for(let t=0;t<P.r;t++){const a=lx;lx=-ly;ly=a;}                 // into the voxel's turned frame
+  pattern(P.st,lx,ly,lz,P.v,PB);let px=PB[0],py=PB[1];
+  for(let t=0;t<P.r;t++){const a=px;px=py;py=-a;}                 // and back
+  o[0]+=kw*px;o[1]+=kw*py;o[2]+=kw*PB[2];ws+=kw;}
+ if(ws>0){o[0]/=ws;o[1]/=ws;o[2]/=ws;}}
 const EDGES=[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
 function buildChunk(cx,cy){
  const sx0=cx*CH*RES-PADS,sy0=cy*CH*RES-PADS,sz0=-PADS,nx=CH*RES+2*PADS+1,ny=nx,nz=Z*RES+2*PADS+1,T=.5;
  const F=new Float32Array(nx*ny*nz),at=(ix,iy,iz)=>(iz*ny+iy)*nx+ix;
  // a voxel whose 27-neighbourhood is all rock or all air needs no field: 2 all rock, 0 all air, 1 mixed
  const vx0=Math.floor((sx0+.5)/RES)-1,vy0=Math.floor((sy0+.5)/RES)-1,vz0=-3,vnx=CH+6,vnz=Z+6,U=new Int8Array(vnx*vnx*vnz).fill(-1);
+ PC=new Array(vnx*vnx*vnz);PCo=[vx0-1,vy0-1,vz0-1,vnx+2,vnz+2];PC=new Array(PCo[3]*PCo[3]*PCo[4]);
  const uni=(i,j,k)=>{const q=((k-vz0)*vnx+(j-vy0))*vnx+(i-vx0);if(U[q]>=0)return U[q];let n=0;
   for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++)if(vsolid(i+di,j+dj,k+dk))n++;return U[q]=n===27?2:n===0?0:1;};
  for(let iz=0;iz<nz;iz++){const z=(sz0+iz+.5)/RES,k=Math.floor(z);for(let iy=0;iy<ny;iy++){const y=(sy0+iy+.5)/RES,j=Math.floor(y);
@@ -79,7 +112,7 @@ function buildChunk(cx,cy){
   let x=(sx0+cx_+.5+px)/RES,y=(sy0+cy_+.5+py)/RES,z=(sz0+cz_+.5+pz)/RES;
   const m=fieldAt(x-nx_*.08,y-ny_*.08,z-nz_*.08,true)||fieldAt(x,y,z,true)||1;
   const ao=1-.5*Math.min(1,1.5*Math.min(1,tri3(x+nx_*.3,y+ny_*.3,z+nz_*.3))+.8*Math.min(1,tri3(x+nx_*.6,y+ny_*.6,z+nz_*.6)));
-  push(styleOf(m),x,y,z,o);x+=o[0];y+=o[1];z+=o[2];
+  pushAt(x,y,z,o);x+=o[0];y+=o[1];z+=o[2];
   vd.push(x,y,z,m,ao);return VI_[q]=vd.length/5-1;};
  // a face for every sample edge, owned by this chunk, where rock meets air
  for(let iz=1;iz<nz-1;iz++)for(let iy=PADS;iy<PADS+CH*RES;iy++)for(let ix=PADS;ix<PADS+CH*RES;ix++){
@@ -87,6 +120,7 @@ function buildChunk(cx,cy){
   if(s!==(F[at(ix+1,iy,iz)]>T)){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);idx.push(a,b,c,a,c,d);}
   if(s!==(F[at(ix,iy+1,iz)]>T)){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);idx.push(a,b,c,a,c,d);}
   if(s!==(F[at(ix,iy,iz+1)]>T)){const a=cellVert(ix-1,iy-1,iz),b=cellVert(ix,iy-1,iz),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);idx.push(a,b,c,a,c,d);}}
+ PC=null;
  return{v:new Float32Array(vd),i:new Uint32Array(idx)};
 }
 
@@ -261,7 +295,7 @@ void main(){
  ivec2 c=ivec2(floor(vW.xy-n.xy*.03));if(texelFetch(uRev,c,0).r<.5)discard;
  float wz=pow(max(r.z,0.),2.),wu=pow(max(r.x,0.),2.),wv=pow(max(r.y,0.),2.),sm=wz+wu+wv;
  float s=sm>1e-4?(1.12*wz+.58*wu+.8*wv)/sm:.5;
- vec3 q=floor(vW*16.);float sp=h3(q)<.14?.88:1.;
+ vec3 q=floor(vW*16.);float sp=(h3(q)<.14?.88:1.)*(.93+.14*h3(floor(vW-n*.06)+.5)); // speckle, and each voxel's own tone
  if(vM==19)s=.82+(s-.82)*.55;
  else if(vM==2){float e=worley(vW*3.);s*=(e<.12?.62:1.)*(.86+.28*h3(floor(vW*3.)));}
  else if(vM==1)s*=.92+.14*h3(floor(vW*vec3(5.,5.,4.)));
