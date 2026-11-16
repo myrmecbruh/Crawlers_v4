@@ -24,11 +24,14 @@ function tabColony(){
  const og=openGoals();let gh='<div class="line"><b>Goals</b> <span class="dim">'+(G.gdone||[]).length+'/'+GOALS.length+' done · renown '+(G.renown||0)+'</span></div>';
  for(let s_=0;s_<3;s_++){const i=og[s_];gh+='<div class="goal">'+(i==null?'<i>All goals done.</i>':'<b>'+GOALS[i].n+'</b> <span class="dim">'+GOALS[i].t+'</span><br><span class="pp">reward: '+GOALS[i].r+'</span>')+'</div>';}
  h+='<div class="box" style="height:174px">'+gh+'</div>';
- h+=box('<b>Tokens in the plot</b><br>'+(st||'<i>none</i>'),'86px','scroll');
+ // colonist cards: six fixed slots in a grid, each need on its own line
+ const need=(l,v,mx)=>'<span class="nl"><span class="nk">'+l+'</span><span class="npp">'+pips(v,mx)+'</span></span>';
+ h+='<div class="cgrid">';
  for(let s_=0;s_<MAXC;s_++){const c=G.cols[s_];
-  if(!c){h+='<button class="row" disabled><span class="dim">—</span><br>&nbsp;</button>';continue;}const q=c.need;
-  h+='<button class="row'+(c.id===G.sel?' on':'')+'" data-a="sel" data-v="'+c.id+'"><b>'+c.name+'</b> <span class="dim">'+jobName(c)+'</span><br>'+
-   '<span class="nd">Hun '+pips(q.hun,6)+'</span><span class="nd">Rest '+pips(q.rest,6)+'</span><span class="nd">Cold '+pips(q.temp,6)+'</span><span class="nd">Str '+pips(q.str,6)+'</span><span class="nd">Wd '+pips(wounds(c),3)+'</span></button>';}
+  if(!c){h+='<button class="ccard" disabled><span class="dim">—</span></button>';continue;}const q=c.need;
+  h+='<button class="ccard'+(c.id===G.sel?' on':'')+'" data-a="sel" data-v="'+c.id+'"><span class="cn1"><b>'+c.name+'</b></span><span class="cj dim">'+jobName(c)+'</span>'+
+   need('Hunger',q.hun,6)+need('Rest',q.rest,6)+need('Cold',q.temp,6)+need('Stress',q.str,6)+need('Wounds',wounds(c),3)+'</button>';}
+ h+='</div>';
  const c=G.cols.find(c=>c.id===G.sel);let d='';
  if(G.over)d='<b class="k-bane">No one is left.</b>';
  else if(!c)d='<i>Tap a colonist above to see their sheet.</i>';
@@ -43,6 +46,8 @@ function tabColony(){
  h+=box(d,'250px','scroll');
  h+='<div class="box" style="height:52px"><div class="in">'+(askNew?'<button class="w14 bad" data-a="new">Yes, new world</button><button class="w10" data-a="keep">Keep it</button>':
   '<button class="w14" data-a="new">New world</button><button class="w10" disabled>Keep it</button>')+'</div></div>';
+ // every material the plot could hold has room, so the box never cuts anything off
+ h+='<div class="box" style="height:'+(34+Math.ceil(M.length/2)*34)+'px"><b>Tokens in the plot</b><div class="tgrid">'+(st||'<i>none</i>')+'</div></div>';
  h+='<div class="dim small">Every load and every update starts a new world.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</div>';
  return h;
 }

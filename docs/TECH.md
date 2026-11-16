@@ -72,6 +72,8 @@
 - [slop] The Cards tab lists every kind of card in a fixed row: what it does, whether it is a boon or bane, how long it lasts, and how many are in the draw pile, in the discard and in play today.
 - [gospel] An FPS counter is on screen.
 - [slop] It sits after the date under the top bar: frames drawn in the last second and how long each took on average. The world is only drawn when something changes, so an idle game shows 0 fps.
+- [gospel] Colonist cards are square, with each need on its own line; the token list sits at the bottom of the Colony tab and is never cut off.
+- [slop] Six card slots in two columns; the token box is tall enough for every material.
 - [slop] The camera cannot be dragged off the plot (or the zone while it is open), and a ⌂ button brings it back to the camp.
 - [gospel] Both orientations. The screen is divided in half into roughly two squares: a visual side (the world) and an interface side.
 - [slop] Portrait: world on top, interface below. Landscape: world left, interface right.
