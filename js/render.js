@@ -271,7 +271,8 @@ const PROJ=`uniform vec3 uF;uniform vec4 uK;uniform float uK2;uniform vec2 uVP;
 vec4 pr(vec3 w,out float a,out float N){vec3 d=w-uF;float rx=d.x*uK.x-d.y*uK.y,ry=d.x*uK.y+d.y*uK.x;a=rx+ry;
  N=a*uK.w+d.z*uK2;return vec4((rx-ry)*16.,a*uK.z-d.z*16.,0.,0.);}`;
 const LOOK=`uniform vec3 uFog;uniform float uNight;uniform float uHH;
-vec3 look(vec3 c,float a){float far=-a*uHH/8.,fa=clamp((far-4.)/22.*.72,0.,.72);c=mix(c,uFog,fa);return mix(c,vec3(8.,10.,44.)/255.,uNight);}`;
+// distance fog: haze starts 2 rows behind the point you look at and reaches 75% 14 rows further back
+vec3 look(vec3 c,float a){float far=-a*uHH/8.,fa=clamp((far-2.)/12.*.75,0.,.75);c=mix(c,uFog,fa);return mix(c,vec3(8.,10.,44.)/255.,uNight);}`;
 let TP,SP,DP,revTex;
 function glInit(){
  TP=mkProg(`#version 300 es
@@ -281,7 +282,7 @@ out vec3 vW;flat out int vM;out float vA;out float vR;
 void main(){float a,N;vec4 s=pr(aP,a,N);gl_Position=vec4(s.x*2./uVP.x,-s.y*2./uVP.y,-N/256.,1.);vW=aP;vM=int(aM+.5);vA=aA;vR=a;}`,
  `#version 300 es
 precision highp float;in vec3 vW;flat in int vM;in float vA;in float vR;
-uniform vec4 uK;uniform float uK2;uniform vec3 uPal[24];uniform highp sampler2D uRev;
+uniform vec4 uK;uniform float uK2;uniform vec3 uF;uniform vec3 uPal[24];uniform highp sampler2D uRev;
 ${LOOK}
 out vec4 o;
 float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -300,7 +301,7 @@ void main(){
  else if(vM==2){float e=worley(vW*3.);s*=(e<.12?.62:1.)*(.86+.28*h3(floor(vW*3.)));}
  else if(vM==1)s*=.92+.14*h3(floor(vW*vec3(5.,5.,4.)));
  else if(vM==3){s*=1.08;if(h3(q+7.)<.008&&r.z>.5)s=1.6;}
- float lv=.72+.02*min(31.,4.+vW.z*5.);
+ float lv=clamp(1.+.13*(vW.z-uF.z),.5,1.55); // height tint: 13% lighter per voxel above the height you look at, darker below
  vec3 col=uPal[vM]*s*lv*sp*vA;
  o=vec4(look(col,vR),1.);}`);
  SP=mkProg(`#version 300 es

@@ -40,10 +40,10 @@
 - [slop] Ruin walls get window holes and zone cliffs get undercut ledges.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
-- [slop] Fog starts 4 rows behind the point you are looking at and reaches 72% haze 22 rows further back. Shadows are three-band soft dark ellipses on the ground.
+- [slop] Fog starts 2 rows behind the point you are looking at and reaches 75% haze 14 rows further back. Shadows are three-band soft dark ellipses on the ground.
 - [gospel] Height differences must be readable from above, including a ledge seen against lower ground behind it.
 - [gospel] Elevation is shown by a strong height tint with no outlines: higher ground is lighter.
-- [slop] The tint is 10% per voxel of height.
+- [slop] The tint is 13% per voxel, measured from the height of the point you are looking at: higher is lighter, lower darker.
 - [gospel] Every item has a different shape and texture for each material it can be made of.
 - [slop] Shapes vary by material family (a metal pick, a stone pick, a bone pick); textures vary by material (scrap is rust-patched, iron is clean). Token icons are 8 x 8.
 - [gospel] Skin, hair and eye colours are randomised per character.

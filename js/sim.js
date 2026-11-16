@@ -78,7 +78,7 @@ function endJob(c){if(c.job)for(const k of c.job.res||[])if(G.res[k]===c.id)dele
 // nearest reachable token tile matching spec. o.zone: look beyond the gate; o.loose: not in stockpile
 function findTok(c,spec,o){o=o||{};const f=flood(c);let best=null,bd=1e9;
  for(const k in G.tok){const a=G.tok[k];if(!a.length||rsv('t'+k))continue;const p=tparse(k),x=p[0],y=p[1],z=p[2];
-  if(o.zone?(x<PW||!G.rev[I(x,y)]):x>=PW)continue;if(o.loose&&G.stock[k])continue;if(o.ok&&!o.ok(x,y))continue;
+  if(o.zone?(x<PW||!G.rev[I(x,y)]):x>=PW)continue;if(o.loose&&G.stock[K(x,y)]&&z===G.hgt[I(x,y)])continue;/* already on the stockpile */if(o.ok&&!o.ok(x,y))continue;
   if(!a.some(t=>match(t,spec)))continue;const d=f.dist[N(x,y,z)];if(d>=0&&d<bd){bd=d;best={x,y,z,k};}}
  return best;}
 function takeTok(x,y,spec,z){const k=TK(x,y,z==null?G.hgt[I(x,y)]:z),a=G.tok[k];if(!a)return null;const i=a.findIndex(t=>match(t,spec));if(i<0)return null;

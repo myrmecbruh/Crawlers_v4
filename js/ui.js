@@ -101,8 +101,17 @@ function tap(p){
   else info={x:p.x,y:p.y,t:'Only one '+tool+' in this prototype.'};}
  render();redraw();
 }
-document.addEventListener('click',e=>{
- const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const a=el.dataset.a,v=el.dataset.v;
+// A button acts the moment the finger or mouse button comes up on it, so a panel redrawn by a fast tick between press and
+// release cannot swallow the tap. The browser's own click that follows is then ignored; a click with no press before it
+// (a key press on a focused button) still works.
+let press=null,skipClick=0;
+document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-a]');press=el&&!el.disabled?{a:el.dataset.a,v:el.dataset.v,x:e.clientX,y:e.clientY}:null;});
+document.addEventListener('pointerup',e=>{const p=press;press=null;if(!p||Math.hypot(e.clientX-p.x,e.clientY-p.y)>12)return;
+ const el=document.elementFromPoint(e.clientX,e.clientY),b=el&&el.closest('[data-a]');if(b&&(b.disabled||b.dataset.a!==p.a||b.dataset.v!==p.v))return;
+ skipClick=performance.now()+600;act(p.a,p.v);});
+document.addEventListener('click',e=>{if(performance.now()<skipClick)return;
+ const el=e.target.closest('[data-a]');if(!el||el.disabled)return;act(el.dataset.a,el.dataset.v);});
+function act(a,v){
  if(a==='tab')tab=v;else if(a==='tool'){tool=v;info=null;}else if(a==='sel')G.sel=G.sel===+v?null:+v;
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
@@ -116,7 +125,7 @@ document.addEventListener('click',e=>{
  else if(a==='new'){if(askNew){askNew=false;newGame((Math.random()*1e9)|0);save();goHomeView();}else askNew=true;}
  else if(a==='keep')askNew=false;
  render();redraw();
-});
+}
 let held_=false,pend=false,lastH='';
 $('ui').addEventListener('pointerdown',()=>{held_=true;});
 const rel=()=>{if(!held_)return;held_=false;setTimeout(()=>{if(pend){pend=false;render();}},0);};
