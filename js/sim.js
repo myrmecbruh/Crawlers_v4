@@ -221,7 +221,7 @@ function arrive(c){
   const x=j.x,y=j.y,h=topZ(x,y);delete G.digs[K(x,y)];
   if(h>1){const m=topMat(x,y),tool=c.hands[0]&&c.hands[0].it==='pick'?1:0,seam=seamDie();
    const r=roll(c,0,SKILL[M[m].f],M[m].h>=3?2:1,tool+seam,'digs '+M[m].n);
-   G.vox[VI(x,y,h-1)]=0;let nh=h-1;while(nh>0&&!G.vox[VI(x,y,nh-1)])nh--;G.hgt[I(x,y)]=nh; // there may be a hollow underneath
+   G.vox[VI(x,y,h-1)]=0;touch(x,y);let nh=h-1;while(nh>0&&!G.vox[VI(x,y,nh-1)])nh--;G.hgt[I(x,y)]=nh; // there may be a hollow underneath
    const ft=featAt(x,y);if(ft)G.feats=G.feats.filter(q=>q!==ft);
    if(m!==19){if(r.ok)addTok(x,y,{m});else log('The '+M[m].n+' shatters to nothing.');}}
   endJob(c);break;}
@@ -243,7 +243,7 @@ function arrive(c){
   const r=roll(c,tr,sk,d,0,s.kind==='bill'?'makes '+ITEM[s.it].n:'builds');
   G.sites=G.sites.filter(q=>q!==s);
   if(s.kind==='hearth'||s.kind==='bench'){G.feats.push({id:G.nid++,k:s.kind,x:s.x,y:s.y,m:s.m,fuel:0,left:1,grow:0});log('A '+FEAT[s.kind].n+' stands.');}
-  else if(s.kind==='voxel'){const h=topZ(s.x,s.y);if(h<Z-2){G.vox[VI(s.x,s.y,h)]=s.m;G.hgt[I(s.x,s.y)]=h+1;}}
+  else if(s.kind==='voxel'){const h=topZ(s.x,s.y);if(h<Z-2){G.vox[VI(s.x,s.y,h)]=s.m;G.hgt[I(s.x,s.y)]=h+1;touch(s.x,s.y);}}
   else{const it={it:s.it,m:s.m};if(!r.ok){it.flawed=1;log('The '+ITEM[s.it].n+' comes out flawed.');}addTok(s.x,s.y,it);}
   endJob(c);if(!r.ok)c.cd=6;break;}
  case'fetch':{

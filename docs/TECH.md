@@ -1,7 +1,9 @@
 # Technical
 
 ## Stack
-- [gospel] Web: HTML and JavaScript on a plain 2D canvas, installable as a PWA. One codebase for phone and desktop browsers.
+- [gospel] Web: HTML and JavaScript, installable as a PWA. One codebase for phone and desktop browsers.
+- [gospel] The world is drawn in live 3D with WebGL (changed from a plain 2D canvas on 2026-11-16).
+- [slop] WebGL 2, no libraries.
 - [slop] No framework, no build-time dependencies beyond a single bundling script.
 
 ## Time
@@ -10,32 +12,32 @@
 - [slop] 1 tick per second at normal speed. A day is 240 ticks (the gospel 4 minutes).
 
 ## System impact
-- [gospel] Very low system impact.
-- [slop] Draw only when a tick or input changes something; no continuous animation loop.
+- [gospel] Very low system impact, kept strict after the switch to 3D: the 3D scene is drawn at low resolution and only redrawn on ticks or camera moves.
+- [slop] Exception, because walking animation is also [gospel]: while someone walks at 1x or 4x the scene is redrawn about 12 times a second. Nothing else animates between ticks.
+- [slop] The terrain mesh is built once and rebuilt only for the 16 x 16 chunk whose voxels changed.
 - [slop] Only loaded chunks simulate. Forgotten areas cost nothing.
 - [slop] Targets: under 5% of one core at normal speed on a mid-range phone, under 100 MB memory, under 2 MB download.
 
 ## Art
 - [gospel] Isometric pixel art. One voxel is a 32 px wide tile (32 x 16 diamond top); characters about 24 x 40.
-- [gospel] The camera turns in quarter turns and has a second, steeper angle.
-- [slop] The steeper angle draws the ground diamond 32 x 28; voxel sides stay 16 px tall at both angles. Keys: Q and E turn, R tilts.
+- [gospel] Low-resolution pixel 3D: the real 3D scene is rendered small, one canvas pixel per game pixel, and scaled up with crisp pixels, flat-shaded, so it still reads as pixel art. The scale is unchanged: a tile is 32 px wide, a voxel 16 px tall.
+- [gospel] The camera orbits freely around the point you look at, at a fixed isometric pitch, with a second, steeper pitch. (Earlier: quarter turns only.)
+- [slop] The steeper pitch draws the ground tile 32 x 28; voxels stay 16 px tall at both. Turn by dragging with two fingers, the right mouse button or shift; the turn buttons and Q and E turn 45 degrees; R tilts.
+- [gospel] Characters stay pixel sprites, with visible gear, skin tones, eyes, hair and beards, standing in the 3D world in correct isometric perspective at the same pixel scale as before.
+- [slop] Every sprite (characters, rats, features, tokens) stands upright at its spot; rock in front of it hides it. Colonists hidden by rock show through as a pale outline.
 - [gospel] Characters animate walking with planted feet (no sliding) and face the way they move or work, in true isometric directions that follow the camera.
 - [slop] Two half-steps per tile; walking is drawn at about 12 frames a second, only while someone moves at 1x or 4x speed. At 16x characters step tile to tile.
 - [gospel] Voxels have ambient occlusion.
-- [gospel] Terrain is shaped in 3D but drawn in 2D: each voxel's shape comes from the voxels around it, and each column is rendered once into a cached picture and drawn as before.
 - [gospel] Each voxel keeps a fair amount of bulk, so the terrain still reads as a game grid, while flowing more naturally.
 - [gospel] Every voxel is shaped by all 26 of its neighbours, so overhangs, arches, windows and undercut cliffs are drawn properly.
-- [slop] How: the solid is a smooth field in which each voxel's faces fade over a short width; a ray is cast through each pixel of a voxel's picture to find the surface, which is lit by its direction and darkened where rock stands close in front of it. Lone edges round off, inside corners fill in, flat faces stay on the grid. A shape is ray-traced once per arrangement of the 27 voxels, then tinted per material and height. Pictures are built a few at a time; until one exists that column is drawn with a simpler picture.
+- [slop] How: the solid is a smooth field in which each voxel's faces fade over a width set by its material. It is sampled four times per voxel and turned into a mesh (surface nets). Lone edges round off, inside corners fill in, flat faces stay on the grid. Mesh corners are lit by ambient occlusion from the field.
 - [gospel] Every material has its own voxel geometry: ash must not look like stone or glass.
-- [slop] Ash: very round and pillowy, low-contrast powdery shading. Rubble: lumpy surface made of pebbles with dark gaps. Granite: crisp blocks with flat chamfered edges, a fine groove where two blocks meet, blotchy mottling. Slag-glass (the ruin walls): crisp cubes with slightly tilted facets, brighter, with a few sparkling pixels. Anything else: a plain crisp cube.
-- [slop] Ash and rubble round off and pile smoothly against neighbours; granite, glass and the rest keep hard edges, so walls stay square. Textures repeat every voxel so they run on unbroken; granite and glass get three variants each so neighbours are not identical.
-- [slop] The ambient occlusion is now part of each voxel's picture rather than a separate overlay.
+- [slop] Real geometry, not just surface: ash rounds over 0.4 of a voxel and slumps into soft mounds; rubble's surface is pushed into knobbly lumps up to a fifth of a voxel; granite keeps firm blocks with small bevelled edges and blotchy mottling; slag-glass (the ruin walls) is pushed into flat tilted facets, brighter, with rare sparkles. Anything else: a plain cube.
 - [slop] The shaping is looks only: walking, digging and building still work on whole voxels.
 - [slop] Ruin walls get window holes and zone cliffs get undercut ledges.
-- [slop] Something standing under rock is drawn between the rock below it and the rock above it, and colonists under rock also show through faintly (38%) so they are never lost.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
-- [slop] Fog starts 4 rows behind the point you are looking at and reaches 72% haze 22 rows further back. Shadows are three-band dark ellipses in the ambient occlusion colour.
+- [slop] Fog starts 4 rows behind the point you are looking at and reaches 72% haze 22 rows further back. Shadows are three-band soft dark ellipses on the ground.
 - [gospel] Height differences must be readable from above, including a ledge seen against lower ground behind it.
 - [gospel] Elevation is shown by a strong height tint with no outlines: higher ground is lighter.
 - [slop] The tint is 10% per voxel of height.

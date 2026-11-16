@@ -91,7 +91,7 @@ document.addEventListener('click',e=>{
  if(a==='tab')tab=v;else if(a==='tool'){tool=v;info=null;}else if(a==='sel')G.sel=G.sel===+v?null:+v;
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
- else if(a==='turn')setView(cam.yaw+ +v,cam.tilt);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
+ else if(a==='turn')setView(Math.round((cam.yaw+ +v*.5)*2)/2,cam.tilt);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}
  else if(a==='recall')recall();
@@ -106,13 +106,22 @@ $('ui').addEventListener('pointerdown',()=>{held_=true;});
 const rel=()=>{if(!held_)return;held_=false;setTimeout(()=>{if(pend){pend=false;render();}},0);};
 window.addEventListener('pointerup',rel);window.addEventListener('pointercancel',rel);
 let drag=null;
-cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,mv:false};});
-cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.mv&&Math.abs(dx)+Math.abs(dy)<8)return;drag.mv=true;cam.x=drag.cx-dx/cam.s;cam.y=drag.cy-dy/cam.s;redraw();});
-cv.addEventListener('pointerup',e=>{if(drag&&!drag.mv){const r=cv.getBoundingClientRect(),p=pick(e.clientX-r.left,e.clientY-r.top);if(p)tap(p);}drag=null;});
-cv.addEventListener('pointercancel',()=>{drag=null;});
+// One finger or the left button pans. Two fingers twisting, the right button, or shift with the left button turns the view.
+const ptrs=new Map();
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(ptrs.size===2){const p=[...ptrs.values()];drag={twist:Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x),yaw:cam.yaw,mv:true};return;}
+ drag={x:e.clientX,y:e.clientY,f0:[cam.fx,cam.fy],yaw:cam.yaw,rot:e.button===2||e.shiftKey,mv:false};});
+cv.addEventListener('pointermove',e=>{if(!drag||!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(drag.twist!=null){if(ptrs.size<2)return;const p=[...ptrs.values()],a=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x);setView(drag.yaw-(a-drag.twist)/(Math.PI/2),cam.tilt);return;}
+ const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.mv&&Math.abs(dx)+Math.abs(dy)<8)return;drag.mv=true;
+ if(drag.rot)setView(drag.yaw-dx/160,cam.tilt);else panBy(drag.f0,dx/cam.s,dy/cam.s);});
+const up=e=>{ptrs.delete(e.pointerId);if(drag&&!drag.mv&&e.type==='pointerup'){const r=cv.getBoundingClientRect(),p=pick(e.clientX-r.left,e.clientY-r.top);if(p)tap(p);}
+ if(!ptrs.size)drag=null;};
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.s=Math.max(1,Math.min(4,cam.s+(e.deltaY<0?1:-1)));redraw();},{passive:false});
 window.addEventListener('resize',fit);
-document.addEventListener('keydown',e=>{if(e.code==='KeyQ')setView(cam.yaw-1,cam.tilt);else if(e.code==='KeyE')setView(cam.yaw+1,cam.tilt);else if(e.code==='KeyR')setView(cam.yaw,cam.tilt?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
+document.addEventListener('keydown',e=>{if(e.code==='KeyQ')setView(cam.yaw-.5,cam.tilt);else if(e.code==='KeyE')setView(cam.yaw+.5,cam.tilt);else if(e.code==='KeyR')setView(cam.yaw,cam.tilt?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();clearInterval(timer);timer=null;}else{checkUpdate();if(G.speed>0&&!timer)setSpeed(G.speed);}});
 // When a newer version has been published, save and reload onto it. Checked every two minutes and whenever the page is shown again.
 function checkUpdate(){if(!window.VERSION)return;fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{t=t.trim();

@@ -1,171 +1,105 @@
 'use strict';
-const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
-const cam={x:0,y:(24+24)*8-40,s:2,yaw:0,tilt:0};
-const HH=()=>cam.tilt?14:8; // half height of a ground diamond: 8 is the 2:1 view, 14 the raised one [slop]
-function toV(x,y){switch(cam.yaw){case 1:return[H-1-y,x];case 2:return[W-1-x,H-1-y];case 3:return[y,W-1-x];}return[x,y];}
-function toW(vx,vy){switch(cam.yaw){case 1:return[vy,H-1-vx];case 2:return[W-1-vx,H-1-vy];case 3:return[W-1-vy,vx];}return[vx,vy];}
-function setView(yaw,tilt){const hh=HH(),w=toW((cam.x/16+cam.y/hh)/2,(cam.y/hh-cam.x/16)/2);
- cam.yaw=(yaw+4)%4;cam.tilt=tilt;const v=toV(w[0],w[1]);cam.x=(v[0]-v[1])*16;cam.y=(v[0]+v[1])*HH();redraw();}
-function lookAt(x,y){const v=toV(x,y);cam.x=(v[0]-v[1])*16;cam.y=(v[0]+v[1])*HH()-G.hgt[I(x,y)]*16;redraw();}
+// ---- Renderer. The terrain is a real 3D mesh drawn with WebGL into a small canvas, one canvas pixel per game pixel, that
+// the browser scales up with crisp pixels. Characters, tokens and features are the pixel sprites, stood upright in the
+// 3D scene so rock in front of them hides them. Nothing is drawn unless something changed. [slop] all amounts
+const cv=document.getElementById('cv');
+const gl=cv.getContext('webgl2',{antialias:false,alpha:false,depth:true,premultipliedAlpha:false});
+let ctx=null; // the 2D context the sprite art draws into: one of the sprite atlases
+// The camera looks at a focus point. yaw is in quarter turns and can be any value; tilt 0 is the 2:1 view, 1 the raised one.
+// s is how many screen pixels one game pixel takes.
+const cam={fx:24.5,fy:24.5,fz:3,yaw:0,tilt:0,s:2};
+const HH=()=>cam.tilt?14:8; // half the height of a ground tile in pixels: 8 is the 2:1 view, 14 the raised one [slop]
+const RGB={},rgbOf=m=>RGB[m]||(RGB[m]=[parseInt(M[m].c.slice(1,3),16),parseInt(M[m].c.slice(3,5),16),parseInt(M[m].c.slice(5,7),16)]);
 function shade(hex,f){const n=parseInt(hex.slice(1),16),c=v=>Math.max(0,Math.min(255,Math.round(v*f)));
  return'rgb('+c(n>>16)+','+c(n>>8&255)+','+c(n&255)+')';}
-// ---- Terrain. Each column of voxels is drawn from one cached picture. The picture is computed in 3D: the column's top
-// surface is shaped by the columns around it (a rounded lip toward lower ground, a skirt piled against higher ground) and
-// then projected and lit pixel by pixel. How far a material rounds off is its `soft` value in data.js; 0 is a hard cube.
-// A flat core is always left in the middle of a voxel, so the grid stays readable. [slop] shape and light amounts
-const COLS=new Map(),RGB={};
-const rgbOf=m=>RGB[m]||(RGB[m]=[parseInt(M[m].c.slice(1,3),16),parseInt(M[m].c.slice(3,5),16),parseInt(M[m].c.slice(5,7),16)]);
-const TM=6; // pixels of headroom above a column's flat top, for skirts
-// sg: eight characters, each 0 lower, 1 level, 2 higher: neighbours at u=0, v=0, u=1, v=1, then corners (0,0) (1,0) (1,1) (0,1)
-function colSpr(hh,mt,mb,h,span,sg){
- const key=hh+'|'+mt+'|'+mb+'|'+h+'|'+span+'|'+sg;let c=COLS.get(key);if(c)return c;
- const Hh=TM+hh*2+span*16+1,N=32;c=document.createElement('canvas');c.width=32;c.height=Hh;
- const g=c.getContext('2d'),img=g.createImageData(32,Hh),d=img.data;
- const soft=M[mt].soft||0,B=soft,Bf=soft*1.3,Rf=soft*.8,s=i=>+sg[i]-1,ct=rgbOf(mt),cb=rgbOf(mb);
- const put=(x,y,col,f)=>{if(y<0||y>=Hh)return;const i=(y*32+x)*4;d[i]=Math.min(255,col[0]*f);d[i+1]=Math.min(255,col[1]*f);d[i+2]=Math.min(255,col[2]*f);d[i+3]=255;};
- const qr=t=>1-Math.sqrt(1-Math.min(1,t)*Math.min(1,t)); // quarter-round profile
- const E=(u,v)=>{if(!soft)return 0;const cu=Math.max(0,Math.min(1,u)),cv=Math.max(0,Math.min(1,v));
-  // lip toward lower neighbours
-  let tu=Math.max(s(0)<0?1-cu/B:0,s(2)<0?1-(1-cu)/B:0,0),tv=Math.max(s(1)<0?1-cv/B:0,s(3)<0?1-(1-cv)/B:0,0),t=Math.hypot(tu,tv);
-  if(s(4)<0&&s(0)>=0&&s(1)>=0)t=Math.max(t,1-Math.hypot(cu,cv)/B);if(s(5)<0&&s(2)>=0&&s(1)>=0)t=Math.max(t,1-Math.hypot(1-cu,cv)/B);
-  if(s(6)<0&&s(2)>=0&&s(3)>=0)t=Math.max(t,1-Math.hypot(1-cu,1-cv)/B);if(s(7)<0&&s(0)>=0&&s(3)>=0)t=Math.max(t,1-Math.hypot(cu,1-cv)/B);
-  // skirt against higher neighbours
-  let r=Math.max(s(0)>0?1-cu/Bf:0,s(2)>0?1-(1-cu)/Bf:0,s(1)>0?1-cv/Bf:0,s(3)>0?1-(1-cv)/Bf:0,0);
-  if(s(4)>0)r=Math.max(r,1-Math.hypot(cu,cv)/Bf);if(s(5)>0)r=Math.max(r,1-Math.hypot(1-cu,cv)/Bf);
-  if(s(6)>0)r=Math.max(r,1-Math.hypot(1-cu,1-cv)/Bf);if(s(7)>0)r=Math.max(r,1-Math.hypot(cu,1-cv)/Bf);
-  return Rf*qr(r)-soft*qr(t);};
- const lv=z=>.72+.02*Math.min(31,4+z*5); // higher is lighter
- for(let k=0;k<=2*N-2;k++)for(let iu=Math.max(0,k-N+1);iu<=Math.min(N-1,k);iu++){
-  const iv=k-iu,u=(iu+.5)/N,v=(iv+.5)/N,e=E(u,v),x=Math.min(31,Math.floor(16+(u-v)*16)),yp=(u+v)*hh,y=TM+Math.floor(yp-e*16);
-  let f=1.12*lv(h+e);
-  if(soft){const du=Math.max(-1.2,Math.min(1.2,(E(u+.03,v)-E(u-.03,v))/.06)),dv=Math.max(-1.2,Math.min(1.2,(E(u,v+.03)-E(u,v-.03))/.06));f*=1+.09*du-.09*dv;}
-  if(hash2(x,Math.floor(yp),mt)<.14)f*=.88;
-  put(x,y,ct,f);put(x,y+1,ct,f);put(x,y+2,ct,f);
-  if(iu===N-1||iv===N-1){const right=iu===N-1,base=TM+Math.floor(yp)+span*16;
-   for(let yy=y+1;yy<=base;yy++){const dep=Math.max(0,(yy-TM-yp)/16),col=dep<1?ct:cb;
-    let ff=(right?.58:.8)*lv(h-Math.floor(dep));if(hash2(x,yy,dep<1?mt:mb)<.14)ff*=.88;put(x,yy,col,ff);}}}
- g.putImageData(img,0,0);COLS.set(key,c);return c;
-}
-// ---- Voxel pictures: true 3D shaping. The solid is a smooth field: every voxel contributes a box whose faces fade over a
-// width `w` (0.22 of a voxel for soft materials, almost nothing for hard ones). Where the field is above one half there is
-// rock. A lone edge therefore rounds off, an inside corner fills in, and a flat face stays exactly where the grid puts it,
-// so each voxel keeps its bulk. For one voxel and its 26 neighbours, a ray is cast through every pixel to find that surface,
-// and the pixel is lit by the surface's direction and darkened where rock stands close in front of it (ambient occlusion).
-// A shape depends only on the 27 occupancies, so it is ray-traced once and then tinted per material and height. [slop] amounts
-const SHAPES=new Map(),VSPR=new Map(),SQ=[],SW=.25;
-// Each material has its own geometry. A style is one letter in the shape key:
-//   p pillow (ash): very round, soft and powdery        l lumpy (rubble): pebbly surface, stones with dark gaps
-//   b block (granite): chamfered edges, a fine groove between blocks, cracks
-//   c crystal (slag-glass): crisp, faceted, glinting    h hard: a plain crisp cube (anything else). [slop] all amounts
-const STYLE={1:'b',2:'l',3:'c',19:'p'},sty=m=>m?STYLE[m]||'h':'0',ROUNDS={p:1,l:1};
-const SW_={p:.3,l:.2,b:.1,c:.03,h:.03};
-// value noise that repeats every voxel, so a texture runs on unbroken from one voxel into the next
+// The projection, exactly the pixel scale of the art: a tile is 32 pixels wide, a voxel 16 pixels tall. rx,ry are the
+// turned ground offsets from the focus; N is nearness to the viewer, used for depth.
+function camK(){const hh=HH(),st=hh/16,ct=Math.sqrt(1-st*st),p=cam.yaw*Math.PI/2;
+ return{hh,cs:Math.cos(p),sn:Math.sin(p),k1:ct/Math.SQRT2,k2:st/(Math.SQRT2*ct)};}
+function proj(K,x,y,z){const dx=x-cam.fx,dy=y-cam.fy,dz=z-cam.fz,rx=dx*K.cs-dy*K.sn,ry=dx*K.sn+dy*K.cs;
+ return[(rx-ry)*16,(rx+ry)*K.hh-dz*16,(rx+ry)*K.k1+dz*K.k2,rx+ry];}
+// screen offset in game pixels (on the focus height) back to a ground offset in tiles
+function unproj(K,sx,sy){const b=sx/16,a=sy/K.hh,rx=(a+b)/2,ry=(a-b)/2;return[rx*K.cs+ry*K.sn,-rx*K.sn+ry*K.cs];}
+function setView(yaw,tilt){cam.yaw=((yaw%4)+4)%4;cam.tilt=tilt;redraw();}
+function lookAt(x,y){cam.fx=x+.5;cam.fy=y+.5;cam.fz=G.hgt[I(x,y)]||cam.fz;redraw();}
+function panBy(f0,dx,dy){const K=camK(),d=unproj(K,dx,dy);cam.fx=Math.max(0,Math.min(W,f0[0]-d[0]));cam.fy=Math.max(0,Math.min(H,f0[1]-d[1]));redraw();}
+
+// ---- Terrain mesh. The solid is a smooth field: every voxel adds a box whose faces fade over a width set by its
+// material's style; where the field passes one half there is rock. It is sampled four times per voxel and turned into a
+// mesh with surface nets, one chunk of 16 x 16 tiles at a time, rebuilt only when that chunk's voxels change.
+// Styles (the geometry of each material):
+//   p pillow (ash): wide rounding, so voxels slump into soft mounds    l lumpy (rubble): pushed into knobbly stones
+//   b block (granite): firm blocks with small bevelled edges, shaded in flat planes    c crystal (slag-glass): flat tilted facets
+//   h hard: a plain cube (anything else)
+const STYLE={1:'b',2:'l',3:'c',19:'p'},SW_={p:.4,l:.2,b:.14,c:.05,h:.05},RES=4,CH=16,PADS=3;
+const styleOf=m=>STYLE[m]||'h';
+function vsolid(i,j,k){if(k<0)return 1;if(i<0||j<0||i>=W||j>=H||k>=Z)return 0;return G.vox[(k*H+j)*W+i];}
+function contrib(m,du,dv,dz){const st=styleOf(m),w=SW_[st],lim=.5+w;if(du>=lim||dv>=lim||dz>=lim)return 0;
+ const ku=du<=.5-w?1:(lim-du)/(2*w),kv=dv<=.5-w?1:(lim-dv)/(2*w),kz=dz<=.5-w?1:(lim-dz)/(2*w);
+ return ku*kv*kz;}
+function fieldAt(x,y,z,own){const i0=Math.floor(x),j0=Math.floor(y),k0=Math.floor(z);let f=0,best=0,bm=0;
+ for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const i=i0+di,j=j0+dj,k=k0+dk,m=vsolid(i,j,k);if(!m)continue;
+  const c=contrib(m,Math.abs(x-i-.5),Math.abs(y-j-.5),Math.abs(z-k-.5));f+=c;if(c>best){best=c;bm=m;}}
+ return own?bm:f;}
+// repeating noise, so a pattern runs on unbroken from one voxel into the next
 function hash3(x,y,z,s){return hash2(x,y*131+z*977,s);}
-function vper(x,y,z,n,s){const X=x*n,Y=y*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(Y),zi=Math.floor(Q),fx=X-xi,fy=Y-yi,fz=Q-zi,w=a=>((a%n)+n)%n;
- const u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy),t=fz*fz*(3-2*fz);let r=0;
- for(let c=0;c<8;c++){const a=c&1,b=c>>1&1,d=c>>2;r+=hash3(w(xi+a),w(yi+b),w(zi+d),s)*(a?u:1-u)*(b?v:1-v)*(d?t:1-t);}return r;}
-// pebbles: distance to the nearest and second-nearest stone centre, repeating every voxel
-function pebbles(x,y,z){const n=3,X=x*n,Y=y*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(Y),zi=Math.floor(Q),w=a=>((a%n)+n)%n;let d1=9,d2=9,id=0;
- for(let c=-1;c<=1;c++)for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const cx=xi+a,cy=yi+b,cz=zi+c,h=hash3(w(cx),w(cy),w(cz),71);
-  const px=cx+.15+.7*h,py=cy+.15+.7*hash3(w(cx),w(cy),w(cz),72),pz=cz+.15+.7*hash3(w(cx),w(cy),w(cz),73),d=Math.hypot(X-px,Y-py,Q-pz);
-  if(d<d1){d2=d1;d1=d;id=h;}else if(d<d2)d2=d;}
- return{edge:d2-d1,id};}
-// a small table of random offsets, repeating every voxel, that bends rubble's surface into lumps
 const WT=new Float32Array(6*6*6*3);for(let i=0;i<216;i++)for(let k=0;k<3;k++)WT[i*3+k]=hash2(i,k,808)-.5;
-function warp(u,v,z,o){const n=6,X=u*n,Y=v*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(Y),zi=Math.floor(Q),fx=X-xi,fy=Y-yi,fz=Q-zi,w=a=>((a%n)+n)%n;
+function warp(u,v,z,o,n){const X=u*n,Y=v*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(Y),zi=Math.floor(Q),fx=X-xi,fy=Y-yi,fz=Q-zi,w=a=>((a%n)+n)%n;
  o[0]=o[1]=o[2]=0;for(let c=0;c<8;c++){const a=c&1,b=c>>1&1,d=c>>2,k=(w(xi+a)+n*w(yi+b)+n*n*w(zi+d))*3,f=(a?fx:1-fx)*(b?fy:1-fy)*(d?fz:1-fz);
   o[0]+=WT[k]*f;o[1]+=WT[k+1]*f;o[2]+=WT[k+2]*f;}}
-// The solid is a smooth field: every voxel contributes a box whose faces fade over a width set by its style. Where the field
-// is above one half there is rock, so a lone edge rounds off, an inside corner fills in, and a flat face stays on the grid.
-// For one voxel and its 26 neighbours a ray is cast through every pixel to find that surface; the pixel is lit by the
-// surface's direction and darkened where rock stands close in front of it (ambient occlusion). A shape depends only on the
-// 27 styles, so it is ray-traced once and then tinted per material and height.
-function buildShape(key){
- if(SHAPES.get(key))return;
- const hh=+key.slice(0,key.length-27),sig=key.slice(-27),me=sig[13],round=!!ROUNDS[me];
- // The shape a voxel is cut to: a rounding voxel treats every neighbour as its own kind, so it piles smoothly against walls;
- // a crisp voxel is cut among crisp neighbours only (rounding neighbours are drawn over it where they cover it).
- // Shading looks at every neighbour as it really is.
- const mk=fn=>{const on=[],wd=[],sum=[],wp=[];for(let i=0;i<27;i++){const c=fn(sig[i]);on.push(c!=='0');wd.push(SW_[c]||.03);sum.push(c==='b');wp.push(c==='l');}return{on,wd,sum,wp};};
- const SH=mk(c=>c==='0'?'0':round?me:(ROUNDS[c]?'0':c)),AL=mk(c=>c);
- const ox=Math.ceil((1+2*SW)*16),oy=Math.ceil(2*SW*hh+(1+SW)*16)+1,w=ox*2,h=oy+Math.ceil((2+2*SW)*hh+SW*16)+1,sh=new Float32Array(w*h);
- const pad=round?0:.03,wv=[0,0,0];
- const F=(u,v,z,own,L)=>{L=L||SH;let f=0,bw=0,bi=-1,k13=0,warped=false;
-  for(let c=0;c<27;c++){if(!L.on[c])continue;const ww=L.wd[c],lim=.5+ww+pad;let pu=u,pv=v,pz=z;
-   if(L.wp[c]){if(!warped){warp(u,v,z,wv);warped=true;}pu+=wv[0]*.22;pv+=wv[1]*.22;pz+=wv[2]*.22;}
-   const du=Math.abs(pu-(c%3)+.5);if(du>=lim)continue;const dv=Math.abs(pv-((c/3|0)%3)+.5);if(dv>=lim)continue;const dz=Math.abs(pz-(c/9|0)+.5);if(dz>=lim)continue;
-   const ku=du<=lim-2*ww?1:(lim-du)/(2*ww),kv=dv<=lim-2*ww?1:(lim-dv)/(2*ww),kz=dz<=lim-2*ww?1:(lim-dz)/(2*ww);
-   const k=L.sum[c]?Math.max(0,ku+kv+kz-2):ku*kv*kz; // block: a flat chamfer, and a groove where two blocks meet
-   f+=k;if(c===13)k13=k;if(k>bw){bw=k;bi=c;}}
-  return own?(k13>0&&k13>=bw-1e-3?13:bi):f;}; // on a tie this voxel draws the pixel, so no gap is left between two
- const dz=hh/8,lo=-SW,hi=1+SW,ds=.05,e=.03;
- for(let py=0;py<h;py++)for(let px=0;px<w;px++){
-  const a=(py-oy+.5+16)/hh,b=(px-ox+.5)/16,u1=(a+b)/2,v1=(a-b)/2; // where this pixel's ray crosses the voxel's top plane
-  const t1=Math.min(hi-u1,hi-v1,(hi-1)/dz),t0=Math.max(lo-u1,lo-v1,(lo-1)/dz);if(t1<=t0)continue;
-  if(F(u1+t1,v1+t1,1+t1*dz)>=.5)continue; // the ray arrives already inside rock: a nearer voxel owns this pixel
-  let t=t1,hit=false;while(t>t0){t-=ds;if(F(u1+t,v1+t,1+t*dz)>=.5){hit=true;break;}}
-  if(!hit)continue;let ta=t+ds,tb=t;for(let i=0;i<5;i++){const tm=(ta+tb)/2;if(F(u1+tm,v1+tm,1+tm*dz)>=.5)tb=tm;else ta=tm;}
-  const hu=u1+tb,hv=v1+tb,hz=1+tb*dz;if(F(hu,hv,hz,true)!==13)continue; // the surface here belongs to a neighbour
-  const gu=F(hu+e,hv,hz)-F(hu-e,hv,hz),gv=F(hu,hv+e,hz)-F(hu,hv-e,hz),gz=F(hu,hv,hz+e)-F(hu,hv,hz-e),gl=Math.hypot(gu,gv,gz)||1;
-  let nu=-gu/gl,nv=-gv/gl,nz=-gz/gl,glint=0;
-  if(me==='c'){ // facets: each third of a face tilts a little its own way, and a few catch the light
-   const fu=Math.floor(hu*3),fv=Math.floor(hv*3),fz=Math.floor(hz*3),tri=(hu*3-fu)+(hv*3-fv)+(hz*3-fz)>1.5?1:0,fh=hash3(fu*2+tri,fv,fz,33);
-   nu+=(hash3(fu*2+tri,fv,fz,34)-.5)*.35;nv+=(hash3(fu*2+tri,fv,fz,35)-.5)*.35;nz+=(fh-.5)*.2;const l=Math.hypot(nu,nv,nz);nu/=l;nv/=l;nz/=l;}
-  const wz=Math.max(0,nz)**2,wu=Math.max(0,nu)**2,wvv=Math.max(0,nv)**2,sm=wz+wu+wvv;
-  let s=sm>1e-4?(1.12*wz+.58*wu+.8*wvv)/sm:.5;
-  if(me==='p')s=.82+(s-.82)*.55+(vper(hu,hv,hz,5,9)-.5)*.06;                         // ash: low contrast, powdery
-  else if(me==='l'){const p=pebbles(hu,hv,hz);s*=(p.edge<.12?.62:1)*(.86+.28*p.id);}  // rubble: stones and gaps
-  else if(me==='c')s*=1.08;                                                           // glass: bright
-  s*=1-.5*Math.min(1,1.5*F(hu+nu*.3,hv+nv*.3,hz+nz*.3,false,AL)+.8*F(hu+nu*.6,hv+nv*.6,hz+nz*.6,false,AL));
-  sh[py*w+px]=Math.max(.05,s);}
- SHAPES.set(key,{ox,oy,w,h,sh});
+const tri=x=>Math.abs(x-Math.floor(x)-.5)*2-.5;
+// how far a mesh corner on a surface of each style is pushed: rubble into lumps, ash into a slump, glass into facets
+function push(st,x,y,z,o){
+ if(st==='l'){warp(x,y,z,o,3);o[0]*=.42;o[1]*=.42;o[2]*=.42;}
+ else if(st==='p'){warp(x+3.7,y+1.3,z,o,2);o[0]*=.2;o[1]*=.2;o[2]=o[2]*.12-.06;}
+ else if(st==='c'){o[0]=tri(2*y+2*z+.25)*.13;o[1]=tri(2*x+2*z+.6)*.13;o[2]=tri(2*x-2*y+.4)*.1;}
+ else o[0]=o[1]=o[2]=0;}
+const EDGES=[[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
+function buildChunk(cx,cy){
+ const sx0=cx*CH*RES-PADS,sy0=cy*CH*RES-PADS,sz0=-PADS,nx=CH*RES+2*PADS+1,ny=nx,nz=Z*RES+2*PADS+1,T=.5;
+ const F=new Float32Array(nx*ny*nz),at=(ix,iy,iz)=>(iz*ny+iy)*nx+ix;
+ // a voxel whose 27-neighbourhood is all rock or all air needs no field: 2 all rock, 0 all air, 1 mixed
+ const vx0=Math.floor((sx0+.5)/RES)-1,vy0=Math.floor((sy0+.5)/RES)-1,vz0=-3,vnx=CH+6,vnz=Z+6,U=new Int8Array(vnx*vnx*vnz).fill(-1);
+ const uni=(i,j,k)=>{const q=((k-vz0)*vnx+(j-vy0))*vnx+(i-vx0);if(U[q]>=0)return U[q];let n=0;
+  for(let dk=-1;dk<=1;dk++)for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++)if(vsolid(i+di,j+dj,k+dk))n++;return U[q]=n===27?2:n===0?0:1;};
+ for(let iz=0;iz<nz;iz++){const z=(sz0+iz+.5)/RES,k=Math.floor(z);for(let iy=0;iy<ny;iy++){const y=(sy0+iy+.5)/RES,j=Math.floor(y);
+  for(let ix=0;ix<nx;ix++){const x=(sx0+ix+.5)/RES,i=Math.floor(x),u=uni(i,j,k);F[at(ix,iy,iz)]=u===2?1.5:u===0?0:fieldAt(x,y,z);}}}
+ const tri3=(x,y,z)=>{const X=Math.max(0,Math.min(nx-1.001,x*RES-.5-sx0)),Y=Math.max(0,Math.min(ny-1.001,y*RES-.5-sy0)),Q=Math.max(0,Math.min(nz-1.001,z*RES-.5-sz0));
+  const xi=X|0,yi=Y|0,zi=Q|0,fx=X-xi,fy=Y-yi,fz=Q-zi;let r=0;
+  for(let c=0;c<8;c++){const a=c&1,b=c>>1&1,d=c>>2;r+=F[at(xi+a,yi+b,zi+d)]*(a?fx:1-fx)*(b?fy:1-fy)*(d?fz:1-fz);}return r;};
+ const VI_=new Int32Array(nx*ny*nz).fill(-1),vd=[],idx=[],o=[0,0,0];
+ const cellVert=(cx_,cy_,cz_)=>{const q=at(cx_,cy_,cz_);if(VI_[q]>=0)return VI_[q];
+  const v=[];for(let c=0;c<8;c++)v.push(F[at(cx_+(c&1),cy_+(c>>1&1),cz_+(c>>2))]);
+  let px=0,py=0,pz=0,n=0;
+  for(const e of EDGES){const a=v[e[0]],b=v[e[1]];if((a>T)===(b>T))continue;const t=(T-a)/(b-a);
+   px+=(e[0]&1)+((e[1]&1)-(e[0]&1))*t;py+=(e[0]>>1&1)+((e[1]>>1&1)-(e[0]>>1&1))*t;pz+=(e[0]>>2)+((e[1]>>2)-(e[0]>>2))*t;n++;}
+  px/=n;py/=n;pz/=n;
+  let gx=0,gy=0,gz=0;for(let c=0;c<8;c++){gx+=(c&1?1:-1)*v[c];gy+=(c>>1&1?1:-1)*v[c];gz+=(c>>2?1:-1)*v[c];}
+  const gl_=Math.hypot(gx,gy,gz)||1,nx_=-gx/gl_,ny_=-gy/gl_,nz_=-gz/gl_;
+  let x=(sx0+cx_+.5+px)/RES,y=(sy0+cy_+.5+py)/RES,z=(sz0+cz_+.5+pz)/RES;
+  const m=fieldAt(x-nx_*.08,y-ny_*.08,z-nz_*.08,true)||fieldAt(x,y,z,true)||1;
+  const ao=1-.5*Math.min(1,1.5*Math.min(1,tri3(x+nx_*.3,y+ny_*.3,z+nz_*.3))+.8*Math.min(1,tri3(x+nx_*.6,y+ny_*.6,z+nz_*.6)));
+  push(styleOf(m),x,y,z,o);x+=o[0];y+=o[1];z+=o[2];
+  vd.push(x,y,z,m,ao);return VI_[q]=vd.length/5-1;};
+ // a face for every sample edge, owned by this chunk, where rock meets air
+ for(let iz=1;iz<nz-1;iz++)for(let iy=PADS;iy<PADS+CH*RES;iy++)for(let ix=PADS;ix<PADS+CH*RES;ix++){
+  const s=F[at(ix,iy,iz)]>T;
+  if(s!==(F[at(ix+1,iy,iz)]>T)){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);idx.push(a,b,c,a,c,d);}
+  if(s!==(F[at(ix,iy+1,iz)]>T)){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);idx.push(a,b,c,a,c,d);}
+  if(s!==(F[at(ix,iy,iz+1)]>T)){const a=cellVert(ix-1,iy-1,iz),b=cellVert(ix,iy-1,iz),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);idx.push(a,b,c,a,c,d);}}
+ return{v:new Float32Array(vd),i:new Uint32Array(idx)};
 }
-// build queued shapes for a few milliseconds, then ask for another frame until none are left
-function buildSome(ms){const t=performance.now();let n=0;while(SQ.length&&performance.now()-t<ms){const k=SQ.shift();if(!SHAPES.get(k)){buildShape(k);n++;}}return n;}
-// v picks one of three variants, so neighbouring voxels of the same kind are not identical: granite gets its own mottling,
-// glass its own glints. Everything else ignores it.
-function voxSpr(key,m,z,v){const st=sty(m);if(st!=='b'&&st!=='c')v=0;const k=key+'|'+m+'|'+z+'|'+v;let c=VSPR.get(k);if(c)return c;
- const sp=SHAPES.get(key),col=rgbOf(m),lv=.72+.02*Math.min(31,4+(z+1)*5);c=document.createElement('canvas');c.width=sp.w;c.height=sp.h;
- const g=c.getContext('2d'),img=g.createImageData(sp.w,sp.h),d=img.data,sh=sp.sh;
- for(let i=0;i<sh.length;i++){const s=sh[i];if(!s)continue;const px=i%sp.w,py=(i/sp.w)|0,j=i*4;
-  let f=s*lv*(hash2(px,py,m+v*50)<.14?.88:1);
-  if(st==='b')f*=.92+.14*hash2((px/3|0)+v*17,(py/2|0),m*3+v);       // granite: blotchy mottling
-  else if(st==='c'&&s>.95&&hash2(px,py,v*31+5)<.025)f=1.7;          // glass: a few sparkling pixels
-  d[j]=Math.min(255,col[0]*f);d[j+1]=Math.min(255,col[1]*f);d[j+2]=Math.min(255,col[2]*f);d[j+3]=255;}
- g.putImageData(img,0,0);VSPR.set(k,c);return c;}
-// the same picture as a flat silhouette in the fog colour
-function fogOf(c){if(c._fog)return c._fog;const o=document.createElement('canvas');o.width=c.width;o.height=c.height;const g=o.getContext('2d');
- g.drawImage(c,0,0);g.globalCompositeOperation='source-in';g.fillStyle=FOGC;g.fillRect(0,0,o.width,o.height);return c._fog=o;}
-// Ambient occlusion: dark bands on ground next to taller voxels, and along the foot of side faces. [slop] strengths
-const AO={8:{},14:{}};
-function mkAO(hh,kind){const c=document.createElement('canvas');c.width=32;c.height=hh*2+17;const g=c.getContext('2d'),band=t=>t<.14?.36:t<.3?.2:t<.46?.09:0;
- for(let py=0;py<hh*2+17;py++)for(let px=0;px<32;px++){
-  const a=(px-15.5)/16,b=(py-(hh-.5))/hh,mx=px<16?px:31-px,y0=hh+Math.floor(mx*hh/16);let al=0;
-  if(Math.abs(a)+Math.abs(b)<=1){const u=(a+b+1)/2,v=(b-a+1)/2;
-   al=kind==='e0'?band(u):kind==='e1'?band(v):kind==='e2'?band(1-u):kind==='e3'?band(1-v):
-    kind==='c0'?band(Math.hypot(u,v)):kind==='c1'?band(Math.hypot(1-u,v)):kind==='c2'?band(Math.hypot(1-u,1-v)):kind==='c3'?band(Math.hypot(u,1-v)):0;}
-  else if(py>=y0&&py<y0+17&&(kind==='sl'&&px<16||kind==='sr'&&px>=16)){const k=y0+17-py;al=k<=3?.32:k<=6?.18:k<=9?.08:0;}
-  if(al){g.fillStyle='rgba(6,6,14,'+al+')';g.fillRect(px,py,1,1);}}
- return c;}
-for(const hh of[8,14])for(const k of['e0','e1','e2','e3','c0','c1','c2','c3','sl','sr'])AO[hh][k]=mkAO(hh,k);
-// Distance fog: ground further back than where you are looking fades into haze. [slop] colour, start and depth
-const FOGC='#262a36',FOGB={}; // FOGB is no longer used for terrain
-for(const hh of[8,14]){const c=document.createElement('canvas');c.width=32;c.height=hh*2+17;const g=c.getContext('2d');g.fillStyle=FOGC;
- for(let py=0;py<hh*2+17;py++)for(let px=0;px<32;px++){const mx=px<16?px:31-px,y0=hh+Math.floor(mx*hh/16);
-  if(Math.abs(px-15.5)/16+Math.abs(py-(hh-.5))/hh<=1||(py>=y0&&py<y0+17))g.fillRect(px,py,1,1);}
- FOGB[hh]=c;}
+
 // Shadows under things, in the same colour and three bands as the ambient occlusion.
 const SHAD={};
-function shadow(x,y,rx){const hh=HH(),k=hh+'|'+rx;let c=SHAD[k];
+// While a sprite is painted, its shadows are noted rather than drawn (SHQ), and drawn on the ground with soft edges.
+let SHQ=null;
+function shadow(x,y,rx){if(SHQ){SHQ.push([x,y,rx]);return;}const hh=HH(),k=hh+'|'+rx;let c=SHAD[k];
  if(!c){const ry=Math.max(2,Math.round(rx*hh/16));c=SHAD[k]=document.createElement('canvas');c.width=rx*2+1;c.height=ry*2+1;const g=c.getContext('2d');
   for(let py=0;py<=ry*2;py++)for(let px=0;px<=rx*2;px++){const t=Math.hypot((px-rx)/rx,(py-ry)/ry),al=t<.5?.36:t<.78?.2:t<=1?.09:0;
    if(al){g.fillStyle='rgba(6,6,14,'+al+')';g.fillRect(px,py,1,1);}}}
  ctx.drawImage(c,Math.round(x)-(c.width>>1),Math.round(y)-(c.height>>1));}
-const FSH={tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
-let dirty=true;
-function redraw(){if(dirty)return;dirty=true;requestAnimationFrame(draw);}
-function fit(){const r=cv.parentElement.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);
- cv.width=Math.max(1,Math.floor(r.width*d));cv.height=Math.max(1,Math.floor(r.height*d));cv._d=d;dirty=false;redraw();}
+
 const rc=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
 function diamond(sx,ty,c,fill){const hh=HH();ctx.beginPath();ctx.moveTo(sx,ty+1);ctx.lineTo(sx+15,ty+hh);ctx.lineTo(sx,ty+hh*2-1);ctx.lineTo(sx-15,ty+hh);ctx.closePath();
  if(fill){ctx.fillStyle=c;ctx.fill();}else{ctx.strokeStyle=c;ctx.lineWidth=1;ctx.stroke();}}
@@ -191,9 +125,10 @@ function held(it,x,b){if(!it)return;const m=M[it.m],c=m.c,f=m.f,w='#6a4c30',hi=s
  case'blade':rc(x,b-26,1,13,c);rc(x,b-26,1,4,hi);rc(x-1,b-14,3,1,'#1c1c22');rc(x,b-13,1,2,w);break;
  case'shield':rc(x-2,b-21,5,9,c);rc(x-2,b-21,5,1,hi);rc(x-1,b-18,3,3,'#1c1c22');rc(x,b-17,1,1,hi);break;}
 }
-function facing(c){const d=[[1,0],[0,1],[-1,0],[0,-1]][c.face||0];let vx=d[0],vy=d[1];
- if(cam.yaw===1){vx=-d[1];vy=d[0];}else if(cam.yaw===2){vx=-d[0];vy=-d[1];}else if(cam.yaw===3){vx=d[1];vy=-d[0];}
- return{f:vx>0||vy<0?1:-1,back:vx<0||vy<0};}
+// which way a figure faces on screen, for any camera turn: f is 1 when facing right, back when walking away
+function facing(c){const d=[[1,0],[0,1],[-1,0],[0,-1]][c.face||0],p=cam.yaw*Math.PI/2,cs=Math.cos(p),sn=Math.sin(p);
+ const rx=d[0]*cs-d[1]*sn,ry=d[0]*sn+d[1]*cs,sx=rx-ry,dp=rx+ry;
+ return{f:sx>1e-6||(Math.abs(sx)<=1e-6&&dp<0)?1:-1,back:dp<-1e-6};}
 // one row per pixel of height, however far the foot is from the hip, so a long stride or a step down leaves no gaps
 function leg(hx,hy,fx,fy,col,fc,boot){const y1=Math.round(fy)-2,n=Math.max(1,y1-hy);for(let y=hy;y<y1;y++){const t=(y-hy)/n;rc(Math.round(hx+(fx-hx)*t)-1,y,3,1,boot&&y>=y1-3?fc:col);}rc(Math.round(fx)-1,y1,3,2,fc);}
 // mv: null when standing, else {x0,y0,x1,y1,p}: screen anchors of the tile left and the tile entered, and progress 0..1
@@ -290,94 +225,201 @@ function featSpr(f,ax,ay){
  case'bench':{const c=M[f.m].c;rc(ax-9,ay-9,18,3,c);rc(ax-8,ay-6,2,8,shade(c,.7));rc(ax+6,ay-6,2,8,shade(c,.7));rc(ax-4,ay-11,4,2,'#aab3bd');break;}
  }
 }
+
+// ---- GL setup
+const NCX=W/CH,NCY=H/CH,CHUNKS=[];
+function mkProg(vs,fs){const p=gl.createProgram();for(const [t,src] of [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]]){const s=gl.createShader(t);
+ gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));gl.attachShader(p,s);}
+ gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
+ const u={};const n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);for(let i=0;i<n;i++){const a=gl.getActiveUniform(p,i);u[a.name.replace('[0]','')]=gl.getUniformLocation(p,a.name);}
+ return{p,u};}
+const PROJ=`uniform vec3 uF;uniform vec4 uK;uniform float uK2;uniform vec2 uVP;
+vec4 pr(vec3 w,out float a,out float N){vec3 d=w-uF;float rx=d.x*uK.x-d.y*uK.y,ry=d.x*uK.y+d.y*uK.x;a=rx+ry;
+ N=a*uK.w+d.z*uK2;return vec4((rx-ry)*16.,a*uK.z-d.z*16.,0.,0.);}`;
+const LOOK=`uniform vec3 uFog;uniform float uNight;uniform float uHH;
+vec3 look(vec3 c,float a){float far=-a*uHH/8.,fa=clamp((far-4.)/22.*.72,0.,.72);c=mix(c,uFog,fa);return mix(c,vec3(8.,10.,44.)/255.,uNight);}`;
+let TP,SP,DP,revTex;
+function glInit(){
+ TP=mkProg(`#version 300 es
+precision highp float;layout(location=0)in vec3 aP;layout(location=1)in float aM;layout(location=2)in float aA;
+${PROJ}
+out vec3 vW;flat out int vM;out float vA;out float vR;
+void main(){float a,N;vec4 s=pr(aP,a,N);gl_Position=vec4(s.x*2./uVP.x,-s.y*2./uVP.y,-N/256.,1.);vW=aP;vM=int(aM+.5);vA=aA;vR=a;}`,
+ `#version 300 es
+precision highp float;in vec3 vW;flat in int vM;in float vA;in float vR;
+uniform vec4 uK;uniform float uK2;uniform vec3 uPal[24];uniform highp sampler2D uRev;
+${LOOK}
+out vec4 o;
+float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+float worley(vec3 p){vec3 i=floor(p),f=fract(p);float d1=9.,d2=9.;
+ for(int z=-1;z<=1;z++)for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec3 g=vec3(x,y,z),c=g+.15+.7*vec3(h3(i+g),h3(i+g+31.),h3(i+g+57.))-f;float d=length(c);
+  if(d<d1){d2=d1;d1=d;}else if(d<d2)d2=d;}return d2-d1;}
+void main(){
+ vec3 n=normalize(cross(dFdx(vW),dFdy(vW)));
+ vec3 r=vec3(n.x*uK.x-n.y*uK.y,n.x*uK.y+n.y*uK.x,n.z);
+ if((r.x+r.y)*uK.w+r.z*uK2<0.){n=-n;r=-r;}
+ ivec2 c=ivec2(floor(vW.xy-n.xy*.03));if(texelFetch(uRev,c,0).r<.5)discard;
+ float wz=pow(max(r.z,0.),2.),wu=pow(max(r.x,0.),2.),wv=pow(max(r.y,0.),2.),sm=wz+wu+wv;
+ float s=sm>1e-4?(1.12*wz+.58*wu+.8*wv)/sm:.5;
+ vec3 q=floor(vW*16.);float sp=h3(q)<.14?.88:1.;
+ if(vM==19)s=.82+(s-.82)*.55;
+ else if(vM==2){float e=worley(vW*3.);s*=(e<.12?.62:1.)*(.86+.28*h3(floor(vW*3.)));}
+ else if(vM==1)s*=.92+.14*h3(floor(vW*vec3(5.,5.,4.)));
+ else if(vM==3){s*=1.08;if(h3(q+7.)<.008&&r.z>.5)s=1.6;}
+ float lv=.72+.02*min(31.,4.+vW.z*5.);
+ vec3 col=uPal[vM]*s*lv*sp*vA;
+ o=vec4(look(col,vR),1.);}`);
+ SP=mkProg(`#version 300 es
+precision highp float;layout(location=0)in vec3 aF;layout(location=1)in vec2 aO;layout(location=2)in vec2 aU;layout(location=3)in float aH;
+${PROJ}
+uniform vec2 uTS;uniform float uBias;
+out vec2 vU;out float vR;
+void main(){float a,N;vec4 s=pr(aF,a,N);vec2 P=floor(s.xy+uVP*.5+.5)+aO;
+ N+=max(aH,0.)/16.*uK2+uBias;gl_Position=vec4(P.x/uVP.x*2.-1.,1.-P.y/uVP.y*2.,-N/256.,1.);vU=aU/uTS;vR=a;}`,
+ `#version 300 es
+precision highp float;in vec2 vU;in float vR;uniform sampler2D uT;uniform float uGhost;uniform int uMode;
+${LOOK}
+out vec4 o;
+void main(){vec4 t=texture(uT,vU);
+ if(uMode==2){if(t.a<.01)discard;o=vec4(look(t.rgb,vR),t.a);return;} // shadows: soft
+ if(t.a<.5)discard;
+ if(uMode==1){o=vec4(.86,.92,1.,uGhost);return;}
+ o=vec4(look(t.rgb,vR),1.);}`);
+ DP=mkProg(`#version 300 es
+precision highp float;layout(location=0)in vec3 aP;layout(location=1)in vec4 aC;layout(location=2)in vec2 aL;
+${PROJ}
+out vec4 vC;out vec2 vL;out float vR;
+void main(){float a,N;vec4 s=pr(aP,a,N);gl_Position=vec4(s.x*2./uVP.x,-s.y*2./uVP.y,-(N+.05)/256.,1.);vC=aC;vL=aL;vR=a;}`,
+ `#version 300 es
+precision highp float;in vec4 vC;in vec2 vL;in float vR;
+${LOOK}
+out vec4 o;
+void main(){float e=min(min(vL.x,1.-vL.x),min(vL.y,1.-vL.y));if(vC.a>0.&&e>.07)discard; // outline, or fill when alpha is negative
+ o=vec4(look(vC.rgb,vR),abs(vC.a));}`);
+ revTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,revTex);
+ for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);
+ gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+ for(let i=0;i<NCX*NCY;i++)CHUNKS.push({vao:gl.createVertexArray(),vb:gl.createBuffer(),ib:gl.createBuffer(),n:0});
+ for(const A of[ATL,DYN]){A.tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,A.tex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);
+  for(const p of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);}
+ SB.vao=gl.createVertexArray();SB.vb=gl.createBuffer();DB.vao=gl.createVertexArray();DB.vb=gl.createBuffer();
+ gl.bindVertexArray(SB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,SB.vb);
+ for(const [l,n,o] of[[0,3,0],[1,2,12],[2,2,20],[3,1,28]]){gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,32,o);}
+ gl.bindVertexArray(DB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,DB.vb);
+ for(const [l,n,o] of[[0,3,0],[1,4,12],[2,2,28]]){gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,36,o);}
+ gl.bindVertexArray(null);
+}
+function uploadChunk(k,m){const C=CHUNKS[k];C.n=m.i.length;gl.bindVertexArray(C.vao);
+ gl.bindBuffer(gl.ARRAY_BUFFER,C.vb);gl.bufferData(gl.ARRAY_BUFFER,m.v,gl.STATIC_DRAW);
+ for(const [l,n,o] of[[0,3,0],[1,1,12],[2,1,16]]){gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,20,o);}
+ gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,C.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,m.i,gl.STATIC_DRAW);gl.bindVertexArray(null);}
+// chunks marked by world.js when their voxels change
+function rebuildDirty(){for(const k of DIRTY){if(k<0||k>=NCX*NCY)continue;uploadChunk(k,buildChunk(k%NCX,(k/NCX)|0));}DIRTY.clear();}
+
+// ---- Sprite atlases. Features and token stacks change rarely, so their pictures are kept (ATL); characters, rats, dice
+// and markers are drawn fresh each frame (DYN).
+const ATL={w:1024,h:1024,map:new Map(),sx:0,sy:0,sh:0,dirty:true},DYN={w:512,h:512,sx:0,sy:0,sh:0,dirty:true},SB={},DB={};
+for(const A of[ATL,DYN]){A.cv=document.createElement('canvas');A.cv.width=A.w;A.cv.height=A.h;A.g=A.cv.getContext('2d');}
+function cell(A,w,h){if(A.sx+w>A.w){A.sx=0;A.sy+=A.sh;A.sh=0;}if(A.sy+h>A.h)return null;const r={x:A.sx,y:A.sy};A.sx+=w+1;A.sh=Math.max(A.sh,h+1);return r;}
+function resetAtlas(A){A.g.clearRect(0,0,A.w,A.h);A.sx=A.sy=A.sh=0;if(A.map)A.map.clear();A.dirty=true;}
+// draw a picture into an atlas: fn draws with its anchor (the point that stands on the ground) at ax,ay
+function paint(A,w,h,ax,ay,fn){let r=cell(A,w,h);if(!r){if(A===ATL){resetAtlas(A);r=cell(A,w,h);}else return null;}
+ ctx=A.g;ctx.save();ctx.beginPath();ctx.rect(r.x,r.y,w,h);ctx.clip();SHQ=[];fn(r.x+ax,r.y+ay);
+ const sq=SHQ.map(q=>[q[0]-r.x-ax,q[1]-r.y-ay,q[2]]);SHQ=null;ctx.restore();A.dirty=true;return{x:r.x,y:r.y,w,h,ax,ay,sh:sq};}
+function stat(key,w,h,ax,ay,fn){let e=ATL.map.get(key);if(!e){e=paint(ATL,w,h,ax,ay,fn);ATL.map.set(key,e);}return e;}
+// one upright picture standing at world point (x,y,z); off shifts it sideways in pixels
+function quad(out,e,x,y,z,off,offy){const x0=-e.ax+(off||0),y0=-e.ay+(offy||0),x1=x0+e.w,y1=y0+e.h;
+ for(const [ox,oy,u,v] of[[x0,y0,e.x,e.y],[x1,y0,e.x+e.w,e.y],[x0,y1,e.x,e.y+e.h],[x1,y0,e.x+e.w,e.y],[x1,y1,e.x+e.w,e.y+e.h],[x0,y1,e.x,e.y+e.h]])
+  out.push(x,y,z,ox,oy,u,v,-oy);
+ if(e.sh&&SHL)for(const q of e.sh){const r=Math.round(q[2]),se=stat('sh'+HH()+'|'+r,r*2+3,r*2+3,r+1,r+1,(ax,ay)=>{SHQ=null;shadow(ax,ay,r);SHQ=[];});
+  quad(SHL,se,x,y,z,(off||0)+Math.round(q[0]),Math.round(q[1]));}}
+let SHL=null; // where shadow quads go while a frame is gathered
+// a flat marker on a tile: outline, or fill when a is negative
+function decal(out,x,y,z,r,g,b,a){const zz=z+.04;for(const [u,v] of[[0,0],[1,0],[1,1],[0,0],[1,1],[0,1]])out.push(x+u,y+v,zz,r,g,b,a,u,v);}
+
+// ---- Drawing a frame
+let dirty=true;
+function redraw(){if(dirty)return;dirty=true;requestAnimationFrame(draw);}
+function fit(){redraw();}
+const FSH={tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
+function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(o))rc(ex-2,ey-4,2,2,'#d02020');}
+const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
+const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
+let PAL=null;
 function draw(){
  dirty=false;if(!G)return;
- const d=cv._d||1,s=cam.s*d,cw=cv.width,ch=cv.height;
- ctx.setTransform(1,0,0,1,0,0);ctx.imageSmoothingEnabled=false;rc(0,0,cw,ch,'#0b0b10');
- ctx.setTransform(s,0,0,s,Math.round(cw/2-cam.x*s),Math.round(ch/2-cam.y*s));
- const vx0=cam.x-cw/2/s-20,vx1=cam.x+cw/2/s+20,vy0=cam.y-ch/2/s-20,vy1=cam.y+ch/2/s+Z*16+20;
- const fm=new Map(),cm=new Map(),em=new Map(),sm=new Map(),xm=new Map();
- const put=(m,o)=>{const i=I(o.x,o.y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
- for(const f of G.feats)if(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier')put(fm,f);
- const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1,hh0=HH();
- const anc=(x,y,z)=>{const v=toV(x,y);return[(v[0]-v[1])*16,(v[0]+v[1])*hh0-(z==null?G.hgt[I(x,y)]:z)*16+hh0];};
- const mover=o=>{if(o._mv!==G.t||al>=1)return null;const a=anc(o._px,o._py,o._pz),b=anc(o.x,o.y,o.z);return{x0:a[0],y0:a[1],x1:b[0],y1:b[1],p:al};};
- // an entity is drawn with the tile it is leaving or entering, whichever is further back, at that tile's height
- const putM=(m,o)=>{let x=o.x,y=o.y,z=o.z;if(o._mv===G.t&&al<1){const a=toV(o._px,o._py),b=toV(x,y);if(a[0]+a[1]>b[0]+b[1]){x=o._px;y=o._py;z=o._pz;}}
-  o._dz=z==null?G.hgt[I(x,y)]:z;o._gx=x;o._gy=y;const i=I(x,y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
- const ghosts=[];
- for(const c of G.cols)if(c.by==null)putM(cm,c);for(const e of G.crit)putM(em,e);for(const q of G.sites)put(sm,q);for(const f of G.fx)put(xm,f);
- const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,dgF=Math.round(cam.y/hh);
- function drawEnt(o,isCol,group){
-  if(!isCol){const mv=mover(o),a=anc(o.x,o.y,o.z),ex=mv?Math.round(mv.x0+(mv.x1-mv.x0)*mv.p):a[0],ey=mv?Math.round(mv.y0+(mv.y1-mv.y0)*mv.p-(mv.p*4%2<1?1:0)):a[1],f=facing(o).f;
-   shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(o))rc(ex-2,ey-4,2,2,'#d02020');return;}
-  const n=group?Math.max(0,group.indexOf(o)):0,len=group?group.length:1,off=n*5-(len-1)*2,mv=mover(o);
-  if(mv){mv.x0+=off;mv.x1+=off;charSpr(o,0,0,mv);}else{const a=anc(o.x,o.y,o.z);charSpr(o,a[0]+off,a[1],null);}}
- for(let dg=0;dg<VW+VH-1;dg++)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
-  const vy=dg-vx,sx=(vx-vy)*16,sy=dg*hh;if(sx<vx0||sx>vx1||sy<vy0||sy>vy1)continue;
-  const wp_=toW(vx,vy),x=wp_[0],y=wp_[1],i=I(x,y),h=G.hgt[i];
-  if(!h||(x>=PW&&!G.rev[i]))continue; // void and unseen ground are not drawn at all
-  const fog=false,seen=n=>n[0]>=PW&&!G.rev[I(n[0],n[1])]?0:G.hgt[I(n[0],n[1])];
-  let hE=0,hS=0;if(vx+1<VW)hE=seen(toW(vx+1,vy));if(vy+1<VH)hS=seen(toW(vx,vy+1));
-  const z0=Math.max(0,Math.min(h-1,hE,hS));
-  const far=(dgF-dg)*hh/8,fa=far<=4?0:Math.min(.72,Math.round((far-4)/22*.72*12)/12);
-  ctx.globalAlpha=1;
-  // Every voxel with a face toward the viewer is drawn from a picture shaped by its 26 neighbours. Until those pictures
-  // exist (they are built a few at a time), the column is drawn with the quicker column picture instead.
-  const oc=(a,b,z)=>{if(z<0)return'h';if(z>=Z||a<0||b<0||a>=VW||b>=VH)return'0';const n=toW(a,b),j=I(n[0],n[1]);if(n[0]>=PW&&!G.rev[j])return'0';
-   return sty(G.vox[(z*H+n[1])*W+n[0]]);};
-  let ready=true,hollowCol=false;const vl=[],miss=[];
-  for(let z=0;z<h;z++){const m=G.vox[VI(x,y,z)];if(!m){hollowCol=true;continue;}const o1=oc(vx,vy,z+1),o2=oc(vx+1,vy,z),o3=oc(vx,vy+1,z);
-   if(o1!=='0'&&o2!=='0'&&o3!=='0'&&(ROUNDS[sty(m)]||!(ROUNDS[o1]||ROUNDS[o2]||ROUNDS[o3])))continue; // nothing of it can be seen
-   let sig='';for(let c=-1;c<=1;c++)for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++)sig+=oc(vx+a,vy+b,z+c);
-   const key=hh+sig,shp=SHAPES.get(key);
-   if(!shp){ready=false;miss.push(key);if(shp===undefined){SHAPES.set(key,null);SQ.push(key);}}vl.push(z,m,key);}
-  // Things standing under rock in this tile: the rock below them is drawn first, then they are, then the rock above.
-  const cc=cm.get(i),ee=em.get(i),under=[];
-  if(cc)for(const c of cc)if(c._dz<h)under.push(c);if(ee)for(const e of ee)if(e._dz<h)under.push(e);
-  const doorUnder=x===47&&y===24&&!G.gateOpen&&G.gateZ<h;
-  if(!ready&&(hollowCol||under.length)){for(const k of miss)buildShape(k);ready=true;} // the quick picture cannot show a hollow
-  const vox=(lo,hi_)=>{for(let q=0;q<vl.length;q+=3){if(vl[q]<lo||vl[q]>=hi_)continue;const cs=voxSpr(vl[q+2],vl[q+1],vl[q],(x*7+y*13+vl[q]*5)%3),sp=SHAPES.get(vl[q+2]);
-   ctx.drawImage(cs,sx-sp.ox,sy-vl[q]*16-sp.oy);if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-sp.ox,sy-vl[q]*16-sp.oy);ctx.globalAlpha=1;}}};
-  if(ready){let split=h;for(const o of under)split=Math.min(split,o._dz);if(doorUnder)split=Math.min(split,G.gateZ);
-   vox(0,split);
-   if(under.length||doorUnder){ctx.globalAlpha=1-fa;
-    if(doorUnder){const gy=sy-G.gateZ*16+hh;rc(sx-8,gy-22,16,24,'#3a2c20');rc(sx-8,gy-12,16,2,'#aab3bd');}
-    for(const o of under){const isC=!!(cc&&cc.includes(o));drawEnt(o,isC,cc);if(isC)ghosts.push(o);}
-    ctx.globalAlpha=1;}
-   vox(split,99);}
-  else{const sv=(a,b)=>a<0||b<0||a>=VW||b>=VH?0:seen(toW(a,b)),sn=n=>n<h?'0':n>h?'2':'1';
-   const sg=sn(sv(vx-1,vy))+sn(sv(vx,vy-1))+sn(hE)+sn(hS)+sn(sv(vx-1,vy-1))+sn(sv(vx+1,vy-1))+sn(sv(vx+1,vy+1))+sn(sv(vx-1,vy+1));
-   const mt=G.vox[VI(x,y,h-1)],cs=colSpr(hh,mt,(h>1&&G.vox[VI(x,y,h-2)])||mt,h,h-z0,sg);
-   ctx.drawImage(cs,sx-16,sy-h*16-TM);
-   if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-16,sy-h*16-TM);}}
-  ctx.globalAlpha=1-fa;
-  if(fog)continue;
-  const ty=sy-h*16,ay=ty+hh,k=K(x,y);
-  if(G.stock[k])diamond(sx,ty,'rgba(240,192,64,.5)');
-  if(G.digs[k])diamond(sx,ty,'rgba(220,60,60,.45)',1);
-  if(x===47&&y===24&&!G.gateOpen&&!(G.gateZ<h)){rc(sx-8,ay-22,16,24,'#3a2c20');rc(sx-8,ay-12,16,2,'#aab3bd');}
-  const ss=sm.get(i);if(ss)for(const q of ss){diamond(sx,ty,'rgba(120,200,255,.8)');for(let n=0;n<q.need;n++)rc(sx-6+n*5,ay-2,4,4,n<q.have?'#7fd0ff':'#234');}
-  const ff=fm.get(i);if(ff)for(const f of ff){shadow(sx,ay+1,FSH[f.k]||6);featSpr(f,sx,ay);}
-  const tk=G.tok[k];if(tk){const nc=Math.min(3,tk.length);shadow(sx-13+nc*4.5,ay+3+(ff?4:0),3+nc*4);}
-  if(tk)for(let n=0;n<tk.length;n++)tokSpr(tk[n],sx-13+(n%3)*9,ay-4-Math.floor(n/3)*8+(ff?4:0));
-  if(ee)for(const e of ee)if(!under.includes(e))drawEnt(e,false);
-  if(cc)for(const c of cc)if(!under.includes(c))drawEnt(c,true,cc);
-  ctx.globalAlpha=1;
-  const xx=xm.get(i);if(xx){let row=0;for(const f of xx){const w=f.dice.length*8;for(let n=0;n<f.dice.length;n++)dieSpr(sx-w/2+n*8,ay-44-row*9,f.dice[n],f.dice[n]>=f.tgt);row++;}}
- }
- // colonists under rock show through it faintly, so they are never lost
- ctx.globalAlpha=.38;for(const c of ghosts)drawEnt(c,true,cm.get(I(c._gx,c._gy)));
- ctx.globalAlpha=1;ctx.setTransform(1,0,0,1,0,0);
- if(SQ.length&&buildSome(14))redraw();
- const t=tod(),a=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;if(a)rc(0,0,cw,ch,'rgba(8,10,44,'+a+')');
+ if(!gl){const g=cv.getContext&&null;return;}
+ if(!TP)glInit();
+ const r=cv.parentElement.getBoundingClientRect(),vw=Math.max(1,Math.ceil(r.width/cam.s)),vh=Math.max(1,Math.ceil(r.height/cam.s));
+ if(cv.width!==vw||cv.height!==vh){cv.width=vw;cv.height=vh;}
+ rebuildDirty();
+ if(!PAL){PAL=new Float32Array(72);for(let m=1;m<M.length&&m<24;m++){const c=rgbOf(m);PAL[m*3]=c[0]/255;PAL[m*3+1]=c[1]/255;PAL[m*3+2]=c[2]/255;}}
+ // which ground has been seen: the plot always, the zone where a party has looked
+ const rev=new Uint8Array(W*H);for(let i=0;i<W*H;i++)rev[i]=(i%W)<PW||G.rev[i]?255:0;
+ gl.bindTexture(gl.TEXTURE_2D,revTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,rev);
+ const K=camK(),t=tod(),night=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;
+ const common=P=>{gl.useProgram(P.p);gl.uniform3f(P.u.uF,cam.fx,cam.fy,cam.fz);gl.uniform4f(P.u.uK,K.cs,K.sn,K.hh,K.k1);gl.uniform1f(P.u.uK2,K.k2);
+  gl.uniform2f(P.u.uVP,vw,vh);gl.uniform3f(P.u.uFog,38/255,42/255,54/255);gl.uniform1f(P.u.uNight,night);gl.uniform1f(P.u.uHH,K.hh);};
+ gl.viewport(0,0,vw,vh);gl.clearColor(11/255,11/255,16/255,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
+ // terrain
+ common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
+ for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
+ // gather sprites and markers
+ const st=[],dy=[],ov=[],gh=[],dc=[],shd=[];resetAtlas(DYN);SHL=shd;
+ const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1;
+ const top=(x,y)=>G.hgt[I(x,y)];
+ for(const k in G.stock){const p=k.split(','),x=+p[0],y=+p[1];decal(dc,x,y,top(x,y),.94,.75,.25,.55);}
+ for(const k in G.digs){const p=k.split(','),x=+p[0],y=+p[1];decal(dc,x,y,top(x,y),.86,.24,.24,-.45);}
+ for(const q of G.sites){decal(dc,q.x,q.y,top(q.x,q.y),.47,.78,1,.85);
+  const e=paint(DYN,q.need*5+2,6,1,1,(ax,ay)=>{for(let n=0;n<q.need;n++)rc(ax+n*5,ay,4,4,n<q.have?'#7fd0ff':'#234');});if(e)quad(dy,e,q.x+.5,q.y+.5,top(q.x,q.y),-(q.need*5)/2+1);}
+ for(const f of G.feats){if(!(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier')||!seenAt(f.x,f.y))continue;
+  const key='f'+HH()+f.k+(f.m||'')+(f.k==='hearth'&&f.fuel>0?'l':'');
+  const e=stat(key,40,46,20,38,(ax,ay)=>{shadow(ax,ay+1,FSH[f.k]||6);featSpr(f,ax,ay);});quad(st,e,f.x+.5,f.y+.5,f.z!=null?f.z:top(f.x,f.y));}
+ for(const k in G.tok){const p=k.split(','),x=+p[0],y=+p[1],a=G.tok[k];if(!a.length||!seenAt(x,y))continue;const ff=featAt(x,y)?4:0;
+  const key='t'+HH()+ff+a.map(tkey).join(',');
+  const e=stat(key,42,34,18,24,(ax,ay)=>{const nc=Math.min(3,a.length);shadow(ax-13+nc*4.5,ay+3+ff,3+nc*4);for(let n=0;n<a.length;n++)tokSpr(a[n],ax-13+(n%3)*9,ay-4-Math.floor(n/3)*8+ff);});
+  quad(st,e,x+.5,y+.5,top(x,y));}
+ if(!G.gateOpen&&G.gateZ!=null){const e=paint(DYN,18,26,9,24,(ax,ay)=>{rc(ax-8,ay-22,16,24,'#3a2c20');rc(ax-8,ay-12,16,2,'#aab3bd');});if(e)quad(dy,e,47.5,24.5,G.gateZ);}
+ // moving things stand between the tile they left and the one they are entering
+ const pos=o=>{if(o._mv===G.t&&al<1&&o._px!=null){const pz=o._pz!=null?o._pz:top(o._px,o._py),z=o.z!=null?o.z:top(o.x,o.y);
+   return{x:o._px+.5+(o.x-o._px)*al,y:o._py+.5+(o.y-o._py)*al,z:pz+(z-pz)*al,a:proj(K,o._px+.5,o._py+.5,pz),b:proj(K,o.x+.5,o.y+.5,z),p:al};}
+  return{x:o.x+.5,y:o.y+.5,z:o.z!=null?o.z:top(o.x,o.y)};};
+ for(const e of G.crit){if(!seenAt(e.x,e.y))continue;const P=pos(e),s=paint(DYN,24,16,12,11,(ax,ay)=>{let ex=ax,ey=ay;if(P.a)ey-=(P.p*4%2<1?1:0);ratSpr(e,ex,ey);});if(s)quad(dy,s,P.x,P.y,P.z);}
+ const groups={};for(const c of G.cols)if(c.by==null)(groups[K_(c.x,c.y)]=groups[K_(c.x,c.y)]||[]).push(c);
+ for(const c of G.cols){if(c.by!=null)continue;const g=groups[K_(c.x,c.y)],n=g.indexOf(c),off=n*5-(g.length-1)*2,P=pos(c);
+  const s=paint(DYN,56,54,28,44,(ax,ay)=>{if(P.a){const dx=P.b[0]-P.a[0],dy_=P.b[1]-P.a[1],p=P.p;charSpr(c,0,0,{x0:ax-dx*p,y0:ay-dy_*p,x1:ax+dx*(1-p),y1:ay+dy_*(1-p),p});}else charSpr(c,ax,ay,null);});
+  if(s){quad(dy,s,P.x,P.y,P.z,off);const keep=SHL;SHL=null;quad(gh,s,P.x,P.y,P.z,off);SHL=keep;}}
+ for(const f of G.fx){const w=f.dice.length*8,e=paint(DYN,w,8,0,0,(ax,ay)=>{for(let n=0;n<f.dice.length;n++)dieSpr(ax+n*8,ay,f.dice[n],f.dice[n]>=f.tgt);});
+  if(e){e.ay=44;quad(ov,e,f.x+.5,f.y+.5,top(f.x,f.y),-w/2);}}
+ // markers on the ground
+ if(dc.length){common(DP);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+  gl.bindVertexArray(DB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,DB.vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(dc),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,dc.length/9);
+  gl.depthMask(true);gl.disable(gl.BLEND);}
+ // sprites
+ common(SP);gl.uniform1i(SP.u.uT,0);gl.activeTexture(gl.TEXTURE0);
+ SHL=null;
+ const sprites=(A,arr,ghost,bias,mode)=>{if(!arr.length)return;gl.bindTexture(gl.TEXTURE_2D,A.tex);gl.uniform1i(SP.u.uMode,mode||0);
+  if(A.dirty){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,A.cv);A.dirty=false;}
+  gl.uniform2f(SP.u.uTS,A.w,A.h);gl.uniform1f(SP.u.uGhost,ghost);gl.uniform1f(SP.u.uBias,bias);
+  gl.bindVertexArray(SB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,SB.vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,arr.length/8);};
+ gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);sprites(ATL,shd,0,.3,2);gl.depthMask(true);gl.disable(gl.BLEND);
+ sprites(ATL,st,0,.3);sprites(DYN,dy,0,.3);
+ // colonists hidden behind rock show through it as a pale outline, so they are never lost
+ gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthFunc(gl.GREATER);gl.depthMask(false);sprites(DYN,gh,.35,.3,1);
+ gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);
+ gl.disable(gl.DEPTH_TEST);sprites(DYN,ov,0,0);gl.enable(gl.DEPTH_TEST);
+ gl.bindVertexArray(null);
 }
+const K_=(x,y)=>x+','+y;
+// what is under a point on the screen: a colonist if one is drawn there, else the first rock along the line of sight
 function pick(px,py){
- const d=cv._d||1,s=cam.s*d,wx=(px*d-cv.width/2)/s+cam.x,wy=(py*d-cv.height/2)/s+cam.y;
- const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H;
- for(let dg=VW+VH-2;dg>=0;dg--)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
-  const w=toW(vx,dg-vx),sx=(vx-(dg-vx))*16,cy=dg*hh-G.hgt[I(w[0],w[1])]*16+hh;
-  if(!G.hgt[I(w[0],w[1])]||(w[0]>=PW&&!G.rev[I(w[0],w[1])]))continue;
-  if(Math.abs(wx-sx)/16+Math.abs(wy-cy)/hh<=1)return{x:w[0],y:w[1]};}
+ const K=camK(),gx=px/cam.s-cv.width/2,gy=py/cam.s-cv.height/2;
+ let bc=null,bd=1e9;for(const c of G.cols){if(c.by!=null)continue;const p=proj(K,c.x+.5,c.y+.5,c.z!=null?c.z:G.hgt[I(c.x,c.y)]);
+  if(gx>p[0]-8&&gx<p[0]+8&&gy>p[1]-34&&gy<p[1]+3&&-p[2]<bd){bd=-p[2];bc=c;}}
+ if(bc)return{x:bc.x,y:bc.y};
+ const b=gx/16;for(let dz=Z+2-cam.fz;dz>-1-cam.fz;dz-=1/32){const a=(gy+dz*16)/K.hh,rx=(a+b)/2,ry=(a-b)/2;
+  const x=cam.fx+rx*K.cs+ry*K.sn,y=cam.fy-rx*K.sn+ry*K.cs,z=cam.fz+dz,i=Math.floor(x),j=Math.floor(y),k=Math.floor(z);
+  if(i<0||j<0||i>=W||j>=H||k<0||k>=Z)continue;if(!seenAt(i,j))continue;if(G.vox[(k*H+j)*W+i])return{x:i,y:j,z:k};}
  return null;
 }

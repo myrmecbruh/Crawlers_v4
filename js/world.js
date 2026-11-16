@@ -6,7 +6,12 @@ const ri=n=>Math.floor(R()*n);
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+s*40503)|0,1274126177);h^=h>>>13;h=Math.imul(h,1274126177);return((h^h>>>16)>>>0)/4294967296;}
 function noise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);
  const a=hash2(xi,yi,s),b=hash2(xi+1,yi,s),c=hash2(xi,yi+1,s),d=hash2(xi+1,yi+1,s);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;}
-function setCol(x,y,h,base,top){for(let z=0;z<Z;z++)G.vox[VI(x,y,z)]=z<h?(z===h-1?top:base):0;G.hgt[I(x,y)]=h;}
+// Chunks of 16 x 16 tiles whose terrain mesh must be rebuilt. A change reaches into neighbouring chunks, because a voxel's
+// shape depends on the voxels around it.
+const DIRTY=new Set();
+function touch(x,y){for(const dy of[-2,2])for(const dx of[-2,2]){const cx=Math.max(0,Math.min(W/16-1,Math.floor((x+dx)/16))),cy=Math.max(0,Math.min(H/16-1,Math.floor((y+dy)/16)));DIRTY.add(cy*(W/16)+cx);}}
+function markAll(){for(let i=0;i<(W/16)*(H/16);i++)DIRTY.add(i);}
+function setCol(x,y,h,base,top){touch(x,y);for(let z=0;z<Z;z++)G.vox[VI(x,y,z)]=z<h?(z===h-1?top:base):0;G.hgt[I(x,y)]=h;}
 const topZ=(x,y)=>G.hgt[I(x,y)];
 const topMat=(x,y)=>{const h=topZ(x,y);return h?G.vox[VI(x,y,h-1)]:0;};
 const day=()=>Math.floor(G.t/DAY), tod=()=>G.t%DAY, night=()=>tod()>=180, season=()=>Math.floor(day()/6)%4;
@@ -87,7 +92,7 @@ function newGame(seed){
  G={v:1,seed,rs:seed,t:60,speed:1,vox:new Uint8Array(W*H*Z),hgt:new Uint8Array(W*H),rev:new Uint8Array(W*H),keep:new Uint8Array(W*H),mask:new Uint8Array(W*H),
   feats:[],tok:{},stock:{},digs:{},sites:[],cols:[],crit:[],exp:null,zone:{n:0,on:false},gateOpen:false,gate:{x:47,y:24},
   deck:[],discard:[],card:null,log:[],fx:[],nid:1,sel:null,res:{},seam:false,over:false};
- shapeRegion(0,PW-1,24,24,21,seed+31);
+ markAll();shapeRegion(0,PW-1,24,24,21,seed+31);
  for(let y=0;y<H;y++)for(let x=0;x<PW;x++){
   const h=2+Math.floor(noise(x/9,y/9,seed)*3.2),mk=G.mask[I(x,y)];
   if(mk===0){setCol(x,y,0,0,0);continue;}
@@ -148,4 +153,4 @@ function load(){try{const s=localStorage.getItem('crawlers4');if(!s)return false
  if(o.gateZ==null)o.gateZ=o.hgt[I(47,24)];
  // saves from before 3D movement: give everyone a height and let them choose new jobs
  for(const c of o.cols.concat(o.crit))if(c.z==null){c.z=o.hgt[I(c.x,c.y)];c.job=null;c.path=[];o.res={};}
- G=o;return true;}catch(e){return false;}}
+ G=o;markAll();return true;}catch(e){return false;}}
