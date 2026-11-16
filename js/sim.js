@@ -35,46 +35,56 @@ function counts(){if(G._cnt)return G._cnt;const c={fam:{},m:{},meal:0,food:0};
  for(const k in G.tok){if(+k.split(',')[0]>=PW)continue;for(const t of G.tok[k]){if(t.it||t.card||t.corpse)continue;
   const f=M[t.m].f;c.fam[f]=(c.fam[f]||0)+1;c.m[t.m]=(c.m[t.m]||0)+1;if(M[t.m].eat)c.food++;if(t.m===20)c.meal++;}}
  return G._cnt=c;}
-function passable(x,y,nx,ny){
- if(nx<0||ny<0||nx>=W||ny>=H||!G.hgt[ny*W+nx])return false;
- if(Math.abs(topZ(nx,ny)-topZ(x,y))>1)return false;
- if(nx===47&&ny===24&&!G.gateOpen)return false;
- return true;
-}
+// ---- Movement in 3D. A standing spot is a tile and a floor height z: solid rock under it at z-1 and two voxels of room
+// (a person is two voxels tall). A tile can have several spots, e.g. the floor under a ledge and the top of the ledge.
+// Path nodes are N(x,y,z). A step goes to a side neighbour and up or down at most one voxel, with headroom for the climb.
+const NN=W*H*(Z+1),N=(x,y,z)=>(z*H+y)*W+x;
+const solid=(x,y,z)=>z>=0&&z<Z&&G.vox[(z*H+y)*W+x]!==0;
+function spot(x,y,z){if(x<0||y<0||x>=W||y>=H||z<1||z>Z||!G.hgt[y*W+x])return false;
+ if(!solid(x,y,z-1)||solid(x,y,z)||solid(x,y,z+1))return false;
+ return!(x===47&&y===24&&!G.gateOpen);}
+function canMove(x,y,z,nx,ny,nz){if(Math.abs(nz-z)>1||!spot(nx,ny,nz))return false;
+ if(nz>z&&solid(x,y,z+2))return false;if(nz<z&&solid(nx,ny,z+1))return false;return true;}
+// the floor height reached by stepping from (x,y,z) onto tile (nx,ny), or -1
+function stepZ(x,y,z,nx,ny){for(const nz of[z,z+1,z-1])if(canMove(x,y,z,nx,ny,nz))return nz;return-1;}
+const topN=(x,y)=>N(x,y,G.hgt[y*W+x]);
 function flood(c){
- const s=I(c.x,c.y);if(c._f&&c._ft===G.t&&c._fi===s)return c._f;
- const dist=new Int16Array(W*H).fill(-1),prev=new Int32Array(W*H),q=new Int32Array(W*H);let qh=0,qt=0;
+ const s=N(c.x,c.y,c.z);if(c._f&&c._ft===G.t&&c._fi===s)return c._f;
+ const dist=new Int16Array(NN).fill(-1),prev=new Int32Array(NN),q=new Int32Array(W*H*4);let qh=0,qt=0;
  dist[s]=0;q[qt++]=s;
- while(qh<qt){const i=q[qh++],x=i%W,y=(i-x)/W,d=dist[i]+1;
-  if(x+1<W&&dist[i+1]<0&&passable(x,y,x+1,y)){dist[i+1]=d;prev[i+1]=i;q[qt++]=i+1;}
-  if(x>0&&dist[i-1]<0&&passable(x,y,x-1,y)){dist[i-1]=d;prev[i-1]=i;q[qt++]=i-1;}
-  if(y+1<H&&dist[i+W]<0&&passable(x,y,x,y+1)){dist[i+W]=d;prev[i+W]=i;q[qt++]=i+W;}
-  if(y>0&&dist[i-W]<0&&passable(x,y,x,y-1)){dist[i-W]=d;prev[i-W]=i;q[qt++]=i-W;}}
+ while(qh<qt){const i=q[qh++],x=i%W,r=(i/W)|0,y=r%H,z=(r/H)|0,d=dist[i]+1;
+  for(let k=0;k<4;k++){const nx=x+(k===0?1:k===1?-1:0),ny=y+(k===2?1:k===3?-1:0);if(nx<0||ny<0||nx>=W||ny>=H)continue;
+   const nz=stepZ(x,y,z,nx,ny);if(nz<0)continue;const j=N(nx,ny,nz);if(dist[j]>=0)continue;dist[j]=d;prev[j]=i;q[qt++]=j;}}
  c._f={dist,prev};c._ft=G.t;c._fi=s;return c._f;
 }
-function reachD(f,x,y,adj){let b=-1;const t=(tx,ty)=>{if(tx<0||ty<0||tx>=W||ty>=H)return;const d=f.dist[I(tx,ty)];if(d>=0&&(b<0||d<b))b=d;};
- if(adj){t(x+1,y);t(x-1,y);t(x,y+1);t(x,y-1);}else t(x,y);return b;}
-function goTo(c,x,y,adj){
+// Targets. tz is the height of the thing being reached: by default the top of its tile. 'any' accepts any spot on the tile.
+// adj: stand on a side neighbour within one voxel of tz.
+function targets(x,y,adj,tz,fn){if(tz==null)tz=x>=0&&y>=0&&x<W&&y<H?G.hgt[y*W+x]:0;
+ const col=(tx,ty)=>{if(tx<0||ty<0||tx>=W||ty>=H)return;
+  if(adj)for(let z=tz-1;z<=tz+1;z++){if(z>=1&&z<=Z)fn(N(tx,ty,z));}
+  else if(tz==='any'){for(let z=1;z<=Z;z++)fn(N(tx,ty,z));}else fn(N(tx,ty,tz));};
+ if(adj){col(x+1,y);col(x-1,y);col(x,y+1);col(x,y-1);}else col(x,y);}
+function reachD(f,x,y,adj,tz){let b=-1;targets(x,y,adj,tz,j=>{const d=f.dist[j];if(d>=0&&(b<0||d<b))b=d;});return b;}
+function goTo(c,x,y,adj,tz){
  const f=flood(c);let best=-1,bd=1e9;
- const t=(tx,ty)=>{if(tx<0||ty<0||tx>=W||ty>=H)return;const d=f.dist[I(tx,ty)];if(d>=0&&d<bd){bd=d;best=I(tx,ty);}};
- if(adj){t(x+1,y);t(x-1,y);t(x,y+1);t(x,y-1);}else t(x,y);
+ targets(x,y,adj,tz,j=>{const d=f.dist[j];if(d>=0&&d<bd){bd=d;best=j;}});
  if(best<0)return false;
- const p=[],s=I(c.x,c.y);let i=best;while(i!==s){p.push(i);i=f.prev[i];}
+ const p=[],s=N(c.x,c.y,c.z);let i=best;while(i!==s){p.push(i);i=f.prev[i];}
  c.path=p.reverse();return true;
 }
 const dirOf=(dx,dy)=>Math.abs(dx)>=Math.abs(dy)?(dx>=0?0:2):(dy>0?1:3);
-function setJob(c,j,x,y,adj){if(!goTo(c,x,y,adj))return false;if(adj){j.tx=x;j.ty=y;}c.job=j;for(const k of j.res||[])G.res[k]=c.id;return true;}
+function setJob(c,j,x,y,adj,tz){if(!goTo(c,x,y,adj,tz))return false;if(adj){j.tx=x;j.ty=y;}c.job=j;for(const k of j.res||[])G.res[k]=c.id;return true;}
 function endJob(c){if(c.job)for(const k of c.job.res||[])if(G.res[k]===c.id)delete G.res[k];c.job=null;c.path=[];c.asleep=false;}
 // nearest reachable token tile matching spec. o.zone: look beyond the gate; o.loose: not in stockpile
 function findTok(c,spec,o){o=o||{};const f=flood(c);let best=null,bd=1e9;
  for(const k in G.tok){const a=G.tok[k];if(!a.length||rsv('t'+k))continue;const p=k.split(','),x=+p[0],y=+p[1];
   if(o.zone?(x<PW||!G.rev[I(x,y)]):x>=PW)continue;if(o.loose&&G.stock[k])continue;if(o.ok&&!o.ok(x,y))continue;
-  if(!a.some(t=>match(t,spec)))continue;const d=f.dist[I(x,y)];if(d>=0&&d<bd){bd=d;best={x,y,k};}}
+  if(!a.some(t=>match(t,spec)))continue;const d=f.dist[topN(x,y)];if(d>=0&&d<bd){bd=d;best={x,y,k};}}
  return best;}
 function takeTok(x,y,spec){const a=G.tok[K(x,y)];if(!a)return null;const i=a.findIndex(t=>match(t,spec));if(i<0)return null;
  const t=a.splice(i,1)[0];if(!a.length)delete G.tok[K(x,y)];return t;}
 function stockSpot(c){const f=flood(c);let best=null,bd=1e9;
- for(const k in G.stock){if((G.tok[k]||[]).length>=6)continue;const p=k.split(','),d=f.dist[I(+p[0],+p[1])];if(d>=0&&d<bd){bd=d;best={x:+p[0],y:+p[1]};}}
+ for(const k in G.stock){if((G.tok[k]||[]).length>=6)continue;const p=k.split(','),d=f.dist[topN(+p[0],+p[1])];if(d>=0&&d<bd){bd=d;best={x:+p[0],y:+p[1]};}}
  return best;}
 function isHome(c){if(c.x>=PW)return false;for(const k in G.stock){const p=k.split(',');if(Math.abs(p[0]-c.x)+Math.abs(p[1]-c.y)<=4)return true;}return false;}
 function fetchJob(c,spec,to,extra,o){
@@ -83,7 +93,7 @@ function fetchJob(c,spec,to,extra,o){
 }
 // ---- colony jobs, tried in order
 function jRescue(c){const d=G.cols.find(d=>d.down&&!d.home&&d.by==null&&!rsv('c'+d.id));if(!d)return false;
- return setJob(c,{t:'rescue',s:0,id:d.id,res:['c'+d.id]},d.x,d.y,true);}
+ return setJob(c,{t:'rescue',s:0,id:d.id,res:['c'+d.id]},d.x,d.y,true,d.z);}
 function jEat(c){if(c.need.hun<3)return false;const t=findTok(c,{m:20})||findTok(c,{food:1});if(!t)return false;
  return setJob(c,{t:'eat',res:['t'+t.k]},t.x,t.y,false);}
 function jSleep(c){if(!(c.need.rest>=5||(night()&&c.need.rest>=2)))return false;const h=hearth();
@@ -107,7 +117,7 @@ function jGather(c){const n=counts(),want=[];
   const d=reachD(f,ft.x,ft.y,true)+want.indexOf(ft.k)*3;if(d>=0&&reachD(f,ft.x,ft.y,true)>=0&&d<bd){bd=d;b=ft;}}
  return b?setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true):false;}
 function jDrop(c){if(!c.carry.length)return false;const s=stockSpot(c);if(!s)return false;return setJob(c,{t:'drop'},s.x,s.y,false);}
-function jIdle(c){const x=24+ri(9)-4,y=24+ri(9)-4;if(!setJob(c,{t:'wait',n:6+ri(8)},x,y,false))c.job={t:'wait',n:5};return true;}
+function jIdle(c){const x=24+ri(9)-4,y=24+ri(9)-4;if(!setJob(c,{t:'wait',n:6+ri(8)},x,y,false,'any'))c.job={t:'wait',n:5};return true;}
 function pickJob(c){
  if(c.party)return partyJob(c);
  if(c.hands[1]&&!rsv('x')){addTok(c.x,c.y,c.hands[1]);c.hands[1]=null;}
@@ -136,10 +146,10 @@ function partyJob(c){
  const near=(x,y)=>isLead||Math.abs(x-lead.x)+Math.abs(y-lead.y)<=5;
  let en=enemyNear(c,7);for(const d of mem)if(!en)en=enemyNear(d,7);
  if(!en&&e.goal==='nest'&&isLead)en=nearCrit(c);
- if(en&&setJob(c,{t:'fight',id:en.id},en.x,en.y,true))return;
+ if(en&&setJob(c,{t:'fight',id:en.id},en.x,en.y,true,en.z))return;
  if(jRescue(c))return;
  if(c.x<PW&&e.state!=='return'&&mem.some(d=>!d.armed)){c.job={t:'wait',n:2};return;}          // leave together
- if(!isLead&&md(c,lead)>4&&setJob(c,{t:'wait',n:1},lead.x,lead.y,true))return;                 // catch up
+ if(!isLead&&md(c,lead)>4&&setJob(c,{t:'wait',n:1},lead.x,lead.y,true,lead.z))return;                 // catch up
  if(partyHold(c)){c.job={t:'wait',n:2};return;}                                                // wait for stragglers
  if(e.state==='return')return goHome(c);
  const f=flood(c);
@@ -149,10 +159,10 @@ function partyJob(c){
  if(e.goal==='card'&&mem.some(d=>d.carry.some(t=>t.card)))return done('has what it came for');
  if(e.goal==='reclaim'){
   if(c.carry.some(isWood)){let bi=-1,bd=1e9;
-   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y);if(G.keep[i]||(x+y*2)%5||f.dist[i]<0||f.dist[i]>=bd||!near(x,y)||featAt(x,y))continue;bd=f.dist[i];bi=i;}
+   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y),di=f.dist[topN(x,y)];if(G.keep[i]||(x+y*2)%5||di<0||di>=bd||!near(x,y)||featAt(x,y))continue;bd=di;bi=i;}
    if(bi>=0&&setJob(c,{t:'brazier'},bi%W,Math.floor(bi/W),false))return;}
   else if(isLead&&mem.some(d=>d.carry.some(isWood))){let bi=-1,bd=1e9;
-   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y);if(G.keep[i]||(x+y*2)%5||f.dist[i]<0||f.dist[i]>=bd||featAt(x,y))continue;bd=f.dist[i];bi=i;}
+   for(let y=2;y<H-2;y++)for(let x=PW+1;x<W-2;x++){const i=I(x,y),di=f.dist[topN(x,y)];if(G.keep[i]||(x+y*2)%5||di<0||di>=bd||featAt(x,y))continue;bd=di;bi=i;}
    if(bi>=0&&bd>1&&setJob(c,{t:'wait',n:2},bi%W,Math.floor(bi/W),true))return;}
   if(mem.some(d=>!d.armed)){c.job={t:'wait',n:2};return;}
   if(!mem.some(d=>d.carry.some(isWood)))return done(G.feats.some(q=>q.k==='brazier')?'has lit what it carried':'has no wood to carry');
@@ -163,8 +173,8 @@ function partyJob(c){
  for(const ft of G.feats){if(ft.x<PW||ft.left<=0||!go.feats.includes(ft.k)||!G.rev[I(ft.x,ft.y)]||!near(ft.x,ft.y)||rsv('f'+ft.id))continue;const d=reachD(f,ft.x,ft.y,true);if(d>=0&&d<bd){bd=d;b=ft;}}
  if(b&&setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true))return;
  if(!isLead){c.job={t:'wait',n:2};return;} // only the leader explores and decides when to go home
- let bi=-1;bd=1e9;for(let y=1;y<H-1;y++)for(let x=PW;x<W-1;x++){const i=I(x,y);if(!G.rev[i]&&f.dist[i]>=0&&f.dist[i]<bd){bd=f.dist[i];bi=i;}}
- if(bi>=0&&setJob(c,{t:'wait',n:1},bi%W,Math.floor(bi/W),false))return;
+ let bi=-1;bd=1e9;for(let y=1;y<H-1;y++)for(let x=PW;x<W-1;x++){const i=I(x,y);if(G.rev[i])continue;const di=reachD(f,x,y,false,'any');if(di>=0&&di<bd){bd=di;bi=i;}}
+ if(bi>=0&&setJob(c,{t:'wait',n:1},bi%W,Math.floor(bi/W),false,'any'))return;
  if(!G.feats.some(ft=>ft.x>=PW&&ft.left>0&&go.feats.includes(ft.k)&&rsv('f'+ft.id))&&(loose===0||freeT===0)){
   if(e.goal==='map')e.mapped=true;
   return done(e.goal==='map'?'has walked it all':'finds nothing more');}
@@ -202,7 +212,7 @@ function arrive(c){
   endJob(c);break;}
  case'rescue':{const d=col(j.id);if(!d||!d.down){endJob(c);break;}
   if(j.s===0){d.by=c.id;j.s=1;const s=stockSpot(c)||{x:24,y:24};if(!goTo(c,s.x,s.y,false)){d.by=null;endJob(c);}}
-  else{d.by=null;d.home=true;d.downT=0;d.x=c.x;d.y=c.y;log(c.name+' carries '+d.name+' home.');
+  else{d.by=null;d.home=true;d.downT=0;d.x=c.x;d.y=c.y;d.z=c.z;log(c.name+' carries '+d.name+' home.');
    if(d.captive){d.captive=false;d.down=false;log(d.name+' is freed and stays.');}endJob(c);}break;}
  case'fight':{const e=G.crit.find(e=>e.id===j.id);if(!e){endJob(c);break;}
   if(md(e,c)>1){if(!goTo(c,e.x,e.y,true))endJob(c);break;}
@@ -293,7 +303,7 @@ function tickCol(c){
  if(t%20===0){const cold=(night()?1:0)+(season()===3?1:0)+(season()===2&&night()?1:0)+(G.card&&G.card.k==='cold'?1:0)-(nearFire(c)?3:0)-(c.worn[1]?1:0)-(c.worn[5]&&c.worn[5].it==='cloak'?1:0);
   n.temp=Math.max(0,Math.min(6,n.temp+(cold>0?1:-1)));}
  if(c.down){
-  if(c.by!=null){const b=col(c.by);if(b){c.x=b.x;c.y=b.y;}else c.by=null;return;}
+  if(c.by!=null){const b=col(c.by);if(b){c.x=b.x;c.y=b.y;c.z=b.z;}else c.by=null;return;}
   if(++c.downT>=DAY){if(!c.home)return die(c);
    c.down=false;c.downT=0;c.wd=[0,0,0,0,0,0];c.wd[1]=1;const s=ri(6);if(!c.scars.includes(s))c.scars.push(s);
    log(c.name+' rises, scarred: '+TR[s]+' rolls now need a 6.');}
@@ -305,9 +315,9 @@ function tickCol(c){
  if(c.path.length){
   if((c.wd[2]||c.wd[3])&&t%2)return;
   if(c.party&&c.x>=PW-1&&c.job.t!=='fight'&&c.job.t!=='rescue'&&partyHold(c))return;
-  const i=c.path.shift(),x=i%W,y=(i-x)/W;
-  if(!passable(c.x,c.y,x,y)){endJob(c);return;}
-  c._px=c.x;c._py=c.y;c._mv=G.t;c.face=dirOf(x-c.x,y-c.y);c.x=x;c.y=y;return;}
+  const i=c.path.shift(),x=i%W,r=(i/W)|0,y=r%H,z=(r/H)|0;
+  if(Math.abs(x-c.x)+Math.abs(y-c.y)!==1||!canMove(c.x,c.y,c.z,x,y,z)){endJob(c);return;}
+  c._px=c.x;c._py=c.y;c._pz=c.z;c._mv=G.t;c.face=dirOf(x-c.x,y-c.y);c.x=x;c.y=y;c.z=z;return;}
  const j=c.job;if(j.t==='fight'){const e=G.crit.find(e=>e.id===j.id);if(e)c.face=dirOf(e.x-c.x,e.y-c.y);}
  else if(j.tx!=null&&(j.tx!==c.x||j.ty!==c.y)&&!(j.t==='rescue'&&j.s)&&!(j.t==='fetch'&&j.s===0))c.face=dirOf(j.tx-c.x,j.ty-c.y);
  arrive(c);
@@ -317,10 +327,10 @@ function tickCrit(e){
  let b=null,bd=7;for(const c of G.cols){if(c.down||c.x<PW)continue;const d=md(c,e);if(d<bd){bd=d;b=c;}}
  if(b&&bd<=1){e.face=dirOf(b.x-e.x,b.y-e.y);attack(e,b);e.cd=2;return;}
  if(!b&&ri(4))return;
- const opts=[[1,0],[-1,0],[0,1],[0,-1]].map(d=>({x:e.x+d[0],y:e.y+d[1]})).filter(p=>p.x>=PW&&passable(e.x,e.y,p.x,p.y)&&!G.crit.some(o=>o.x===p.x&&o.y===p.y));
+ const opts=[[1,0],[-1,0],[0,1],[0,-1]].map(d=>({x:e.x+d[0],y:e.y+d[1]})).filter(p=>p.x>=PW&&(p.z=stepZ(e.x,e.y,e.z,p.x,p.y))>=0&&!G.crit.some(o=>o.x===p.x&&o.y===p.y));
  if(!opts.length)return;
  const p=b?opts.sort((p,q)=>md(p,b)-md(q,b))[0]:opts[ri(opts.length)];
- if(!b||md(p,b)<bd){e._px=e.x;e._py=e.y;e._mv=G.t;e.face=dirOf(p.x-e.x,p.y-e.y);e.x=p.x;e.y=p.y;}
+ if(!b||md(p,b)<bd){e._px=e.x;e._py=e.y;e._pz=e.z;e._mv=G.t;e.face=dirOf(p.x-e.x,p.y-e.y);e.x=p.x;e.y=p.y;e.z=p.z;}
 }
 function dawn(){
  G.seam=false;

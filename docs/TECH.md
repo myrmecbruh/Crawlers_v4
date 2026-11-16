@@ -26,10 +26,13 @@
 - [gospel] Each voxel keeps a fair amount of bulk, so the terrain still reads as a game grid, while flowing more naturally.
 - [gospel] Every voxel is shaped by all 26 of its neighbours, so overhangs, arches, windows and undercut cliffs are drawn properly.
 - [slop] How: the solid is a smooth field in which each voxel's faces fade over a short width; a ray is cast through each pixel of a voxel's picture to find the surface, which is lit by its direction and darkened where rock stands close in front of it. Lone edges round off, inside corners fill in, flat faces stay on the grid. A shape is ray-traced once per arrangement of the 27 voxels, then tinted per material and height. Pictures are built a few at a time; until one exists that column is drawn with a simpler picture.
-- [slop] Soft materials (ash, rubble, granite) round over 0.22 of a voxel. Everything else is a hard cube, so ruin walls stay square.
+- [gospel] Every material has its own voxel geometry: ash must not look like stone or glass.
+- [slop] Ash: very round and pillowy, low-contrast powdery shading. Rubble: lumpy surface made of pebbles with dark gaps. Granite: crisp blocks with flat chamfered edges, a fine groove where two blocks meet, blotchy mottling. Slag-glass (the ruin walls): crisp cubes with slightly tilted facets, brighter, with a few sparkling pixels. Anything else: a plain crisp cube.
+- [slop] Ash and rubble round off and pile smoothly against neighbours; granite, glass and the rest keep hard edges, so walls stay square. Textures repeat every voxel so they run on unbroken; granite and glass get three variants each so neighbours are not identical.
 - [slop] The ambient occlusion is now part of each voxel's picture rather than a separate overlay.
 - [slop] The shaping is looks only: walking, digging and building still work on whole voxels.
-- [slop] To give the 3D shaping something to show, ruin walls get window holes and zone cliffs get undercut ledges. Characters still walk only on the top of each column: they cannot go under an overhang or into a hollow yet.
+- [slop] Ruin walls get window holes and zone cliffs get undercut ledges.
+- [slop] Something standing under rock is drawn between the rock below it and the rock above it, and colonists under rock also show through faintly (38%) so they are never lost.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 4 rows behind the point you are looking at and reaches 72% haze 22 rows further back. Shadows are three-band dark ellipses in the ambient occlusion colour.

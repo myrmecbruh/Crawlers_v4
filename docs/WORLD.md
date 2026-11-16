@@ -6,6 +6,12 @@
 - [slop] A character is 1 voxel wide and 2 tall.
 - [slop] A chunk is 48 x 48 voxels and 16 high.
 
+## Moving in 3D
+- [gospel] Characters can walk under overhangs.
+- [slop] A standing spot is a tile and a floor height: rock underneath and two voxels of room (a person is two voxels tall). A tile can have several spots, such as the floor under a ledge and the top of the ledge. A step goes to a side neighbour and at most one voxel up or down, with headroom for the climb. Rats follow the same rule.
+- [slop] Tokens, features, digging and building still use the top of each tile. Digging out a tunnel is not possible yet.
+- [slop] The gate is an archway: a two-voxel passage with the wall carried over it. Each zone has three granite outcrops with a tunnel through them, and the plot has one, away from the start.
+
 ## Shaping terrain
 - [gospel] Voxel by voxel: the player can designate any voxel to dig or place; each is a token of its material.
 

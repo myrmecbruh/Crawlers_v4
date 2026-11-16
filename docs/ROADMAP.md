@@ -17,6 +17,6 @@
 ## Prototype status (slice 1)
 In: seeded 48 x 48 walled plot, iso voxel drawing, 3 colonists (Squatters scenario), needs (hunger, rest, cold, stress, wounds), visible tokens and stockpile tiles, dig and place voxels, hearth and workbench, crafting of all draft items, d6 pools with visible dice, fail-forward marks, one gate with a generated zone that is forgotten on return, six party goals (bring ore, map the zone, kill the nest, rescue, reclaim tiles, find a card), recall bell, husk-rats, wounds, downed, rescue, scars, death, a 6-card deck with one draw per dawn, seasons, autosave, PWA shell.
 
-Not in yet: relationships and personality keywords, spoilage, farming, blight border, depths border, raids and threat track, devices, shrine, the other two scenarios, sound, walking under overhangs and through tunnels (terrain is drawn in full 3D, but colonists only walk the top of each column).
+Not in yet: relationships and personality keywords, spoilage, farming, blight border, depths border, raids and threat track, devices, shrine, the other two scenarios, sound, digging tunnels, and tokens or features under rock (characters can walk under overhangs, but everything else uses the top of each tile).
 
 Invented by the prototype, all [slop]: one card drawn per dawn; need rates; a rat dies at 2 wounds; a weapon adds one die; a pack carries 3; one hearth and one workbench only.

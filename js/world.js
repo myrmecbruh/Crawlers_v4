@@ -34,15 +34,33 @@ function shapeRegion(x0,x1,cx,cy,R,s){
   G.mask[i]=wall?1:2;}
 }
 // make the neck walkable: along it, no step between neighbouring ground tiles is more than one voxel
+// the floor of a tile: the gate's floor is under its lintel
+const flr=(x,y)=>x===47&&y===24&&G.gateZ!=null?G.gateZ:G.hgt[I(x,y)];
 function easeNeck(xa,xb){const d=xa<xb?1:-1;for(let x=xa+d;x!==xb+d;x+=d)for(let y=23;y<=25;y++){const i=I(x,y);if(G.mask[i]!==2||G.keep[i])continue;
-  const p=G.hgt[I(x-d,24)],h=Math.max(p-1,Math.min(p+1,G.hgt[i]));if(h!==G.hgt[i])setCol(x,y,h,1,topMat(x,y)||1);}
- for(let x=Math.min(xa,xb);x<=Math.max(xa,xb);x++){const m=G.hgt[I(x,24)];for(const y of[23,25]){const i=I(x,y);if(G.mask[i]===2&&!G.keep[i]&&Math.abs(G.hgt[i]-m)>1)setCol(x,y,m,1,topMat(x,y)||1);}}}
+  const p=flr(x-d,24),h=Math.max(p-1,Math.min(p+1,G.hgt[i]));if(h!==G.hgt[i])setCol(x,y,h,1,topMat(x,y)||1);}
+ for(let x=Math.min(xa,xb);x<=Math.max(xa,xb);x++){const m=flr(x,24);for(const y of[23,25]){const i=I(x,y);if(G.mask[i]===2&&!G.keep[i]&&Math.abs(G.hgt[i]-m)>1)setCol(x,y,m,1,topMat(x,y)||1);}}}
 // Hollow out some wall columns below their top: windows in ruin walls, undercut ledges in cliffs. Walkers stay on top. [slop]
 function hollow(x0,x1,s,window){for(let y=1;y<H-1;y++)for(let x=Math.max(1,x0);x<=Math.min(W-2,x1);x++){const i=I(x,y);
  if(G.mask[i]!==1||G.keep[i]||(x===47&&Math.abs(y-24)<=1))continue;const h=G.hgt[i];if(h<4)continue;
  let g=0;for(const d of[[1,0],[-1,0],[0,1],[0,-1]])if(G.mask[I(x+d[0],y+d[1])]===2)g=Math.max(g,G.hgt[I(x+d[0],y+d[1])]);
  if(!g||h-g<3)continue;const r=hash2(x,y,s);
  if(window){if(r<.16)G.vox[VI(x,y,g+1)]=0;}else if(r<.3){G.vox[VI(x,y,g)]=0;if(r<.12&&h-g>3)G.vox[VI(x,y,g+1)]=0;}}}
+// Rock outcrops with a tunnel through them: something to walk under. The rock becomes wall ground (mask 1), so nothing is
+// scattered on it; the tunnel floor is at the ground height where the outcrop stands, its ends eased to meet the ground. [slop]
+function outcrops(n,x0,x1,y0,y1,s,away){
+ for(let k=0;k<n;k++){let cx=0,cy=0,ok=false;
+  for(let g=0;g<300&&!ok;g++){cx=x0+ri(x1-x0+1);cy=y0+ri(y1-y0+1);ok=!(away&&Math.hypot(cx-away[0],cy-away[1])<away[2]);
+   for(let dy=-5;dy<=5&&ok;dy++)for(let dx=-5;dx<=5;dx++){const x=cx+dx,y=cy+dy,i=I(x,y);
+    if(x<1||y<1||x>=W-1||y>=H-1||G.mask[i]!==2||G.keep[i]||(Math.abs(y-24)<=3&&(x<=56&&x>=40))){ok=false;break;}}}
+  if(!ok)continue;
+  const g0=G.hgt[I(cx,cy)],R=2+ri(2),alongX=ri(2),t0=g0+4,len=R+1+ri(2);
+  for(let dy=-R-1;dy<=R+1;dy++)for(let dx=-R-1;dx<=R+1;dx++){const x=cx+dx,y=cy+dy;
+   const r=Math.hypot(dx*(alongX?.8:1),dy*(alongX?1:.8))+(hash2(x,y,s+k)-.5)*.9;if(r>R+.2)continue;
+   setCol(x,y,t0-(r>R-.6&&hash2(y,x,s)<.5?1:0),1,1);G.mask[I(x,y)]=1;}
+  for(let t=-len-1;t<=len+1;t++){const x=cx+(alongX?t:0),y=cy+(alongX?0:t),i=I(x,y);
+   if(G.mask[i]===1&&G.hgt[i]>g0+2){for(let z=0;z<g0;z++)G.vox[VI(x,y,z)]=G.vox[VI(x,y,z)]||1;G.vox[VI(x,y,g0)]=0;G.vox[VI(x,y,g0+1)]=0;}
+   else if(G.mask[i]===2){const h=Math.max(g0-1,Math.min(g0+1,G.hgt[i]));if(h!==G.hgt[i])setCol(x,y,h,1,topMat(x,y)||1);}}}
+}
 function scatter(k,n,x0,x1,y0,y1,avoid){
  for(let i=0,g=0;i<n&&g<2000;g++){const x=x0+ri(x1-x0+1),y=y0+ri(y1-y0+1);
   if(G.mask[I(x,y)]!==2||featAt(x,y)||G.stock[K(x,y)])continue;
@@ -53,7 +71,7 @@ function mkCol(x,y){
  const tr=[];for(let i=0;i<6;i++){const r=R();tr.push(r<.3?1:r<.8?2:3);}
  const used=G.cols.map(c=>c.name),pool=NAMES.filter(n=>!used.includes(n));
  const c={id:G.nid++,name:pool[ri(pool.length)]||'Nameless',tr,sk:{},mk:{},need:{hun:0,rest:0,temp:0,str:0},
-  wd:[0,0,0,0,0,0],worn:[null,null,null,null,null,null],hands:[null,null],carry:[],x,y,job:null,path:[],
+  wd:[0,0,0,0,0,0],worn:[null,null,null,null,null,null],hands:[null,null],carry:[],x,y,z:G.hgt[I(x,y)],job:null,path:[],
   look:{skin:SKIN[ri(SKIN.length)],hair:HAIR[ri(HAIR.length)],eye:EYE[ri(EYE.length)],style:ri(6),beard:(r=>r<.6?0:r<.72?1:r<.9?2:3)(R())},
   down:false,downT:0,home:false,by:null,scars:[],party:false,armed:false,cd:0,pen:0,asleep:false};
  G.cols.push(c);return c;
@@ -76,7 +94,11 @@ function newGame(seed){
   if(mk===1){setCol(x,y,h+3,3,3);continue;}
   const n=noise(x/4,y/4,seed+7);setCol(x,y,h,1,n>.66?2:n>.56?1:19);
  }
- easeNeck(24,46);G.mask[I(47,24)]=2;setCol(47,24,topZ(46,24),1,19);hollow(0,PW-1,seed+91,true);
+ easeNeck(24,46);G.mask[I(47,24)]=2;
+ // the gate is an archway: a two-voxel passage with the wall carried over it as a lintel
+ {const g=topZ(46,24),T=Math.max(topZ(47,23),topZ(47,25));G.gateZ=g;setCol(47,24,g,1,19);
+  if(T>=g+3){for(let z=g+2;z<T;z++)G.vox[VI(47,24,z)]=3;G.hgt[I(47,24)]=T;}}
+ hollow(0,PW-1,seed+91,true);outcrops(1,4,43,4,43,seed+57,[24,24,10]);
  for(let y=23;y<=25;y++)for(let x=23;x<=25;x++)G.stock[K(x,y)]=1;
  const a=[24,24];
  scatter('tree',34,2,45,2,45,a);scatter('moss',14,2,45,2,45,a);scatter('tuber',9,2,45,2,45,a);
@@ -90,9 +112,9 @@ function newGame(seed){
  G.sel=G.cols[0].id;
  log('Squatters in the ruin: three people, a pick, and a wall with one gate.');
 }
-const mkRat=(x,y)=>G.crit.push({id:G.nid++,k:'Husk-rat',x,y,tr:[1,2,1,1,1,1],sk:{Bite:1},wd:[0,0,0,0,0,0],cd:0});
+const mkRat=(x,y)=>G.crit.push({id:G.nid++,k:'Husk-rat',x,y,z:G.hgt[I(x,y)],tr:[1,2,1,1,1,1],sk:{Bite:1},wd:[0,0,0,0,0,0],cd:0});
 function genZone(){
- const z=G.zone;z.n++;z.on=true;const s=G.seed+z.n*977,gh=topZ(47,24);
+ const z=G.zone;z.n++;z.on=true;const s=G.seed+z.n*977,gh=flr(47,24);
  shapeRegion(PW,W-1,72,24,21,s+31);
  for(let y=0;y<H;y++)for(let x=PW;x<W;x++){
   if(G.keep[I(x,y)])continue;
@@ -102,7 +124,7 @@ function genZone(){
   if(x<=50&&y>=23&&y<=25)h=gh; else if(x<=52&&y>=22&&y<=26)h=Math.max(gh-1,Math.min(gh+1,h));
   const n=noise(x/5,y/5,s+3);setCol(x,y,h,1,n>.7?3:n>.45?2:1);G.rev[I(x,y)]=0;
  }
- easeNeck(47,72);hollow(PW,W-1,s+91,false);
+ easeNeck(47,72);hollow(PW,W-1,s+91,false);outcrops(3,54,92,4,43,s+57);
  scatter('vein',8,52,93,2,45);scatter('scrap',3,52,93,2,45);scatter('glass',3,52,93,2,45);
  const before=G.feats.length;scatter('cache',1,74,93,4,43);if(G.feats.length===before)scatter('cache',1,60,93,2,45);
  for(let i=0,g=0;i<5&&g<500;g++){const x=58+ri(34),y=3+ri(42);if(G.mask[I(x,y)]===2){mkRat(x,y);i++;}}
@@ -123,4 +145,7 @@ function save(){try{const o=Object.assign({},G,{vox:b64(G.vox),hgt:b64(G.hgt),re
 function load(){try{const s=localStorage.getItem('crawlers4');if(!s)return false;const o=JSON.parse(s);if(o.v!==1)return false;
  o.vox=unb64(o.vox);o.hgt=unb64(o.hgt);o.rev=unb64(o.rev);o.keep=o.keep?unb64(o.keep):new Uint8Array(W*H);
  if(o.mask)o.mask=unb64(o.mask);else{o.mask=new Uint8Array(W*H);for(let y=0;y<H;y++)for(let x=0;x<W;x++)o.mask[I(x,y)]=x<PW&&(x===0||y===0||y===H-1||(x===PW-1&&y!==24))?1:2;}
+ if(o.gateZ==null)o.gateZ=o.hgt[I(47,24)];
+ // saves from before 3D movement: give everyone a height and let them choose new jobs
+ for(const c of o.cols.concat(o.crit))if(c.z==null){c.z=o.hgt[I(c.x,c.y)];c.job=null;c.path=[];o.res={};}
  G=o;return true;}catch(e){return false;}}

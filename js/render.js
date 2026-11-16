@@ -53,20 +53,51 @@ function colSpr(hh,mt,mb,h,span,sg){
 // and the pixel is lit by the surface's direction and darkened where rock stands close in front of it (ambient occlusion).
 // A shape depends only on the 27 occupancies, so it is ray-traced once and then tinted per material and height. [slop] amounts
 const SHAPES=new Map(),VSPR=new Map(),SQ=[],SW=.25;
+// Each material has its own geometry. A style is one letter in the shape key:
+//   p pillow (ash): very round, soft and powdery        l lumpy (rubble): pebbly surface, stones with dark gaps
+//   b block (granite): chamfered edges, a fine groove between blocks, cracks
+//   c crystal (slag-glass): crisp, faceted, glinting    h hard: a plain crisp cube (anything else). [slop] all amounts
+const STYLE={1:'b',2:'l',3:'c',19:'p'},sty=m=>m?STYLE[m]||'h':'0',ROUNDS={p:1,l:1};
+const SW_={p:.3,l:.2,b:.1,c:.03,h:.03};
+// value noise that repeats every voxel, so a texture runs on unbroken from one voxel into the next
+function hash3(x,y,z,s){return hash2(x,y*131+z*977,s);}
+function vper(x,y,z,n,s){const X=x*n,Y=y*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(Y),zi=Math.floor(Q),fx=X-xi,fy=Y-yi,fz=Q-zi,w=a=>((a%n)+n)%n;
+ const u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy),t=fz*fz*(3-2*fz);let r=0;
+ for(let c=0;c<8;c++){const a=c&1,b=c>>1&1,d=c>>2;r+=hash3(w(xi+a),w(yi+b),w(zi+d),s)*(a?u:1-u)*(b?v:1-v)*(d?t:1-t);}return r;}
+// pebbles: distance to the nearest and second-nearest stone centre, repeating every voxel
+function pebbles(x,y,z){const n=3,X=x*n,Y=y*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(Y),zi=Math.floor(Q),w=a=>((a%n)+n)%n;let d1=9,d2=9,id=0;
+ for(let c=-1;c<=1;c++)for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const cx=xi+a,cy=yi+b,cz=zi+c,h=hash3(w(cx),w(cy),w(cz),71);
+  const px=cx+.15+.7*h,py=cy+.15+.7*hash3(w(cx),w(cy),w(cz),72),pz=cz+.15+.7*hash3(w(cx),w(cy),w(cz),73),d=Math.hypot(X-px,Y-py,Q-pz);
+  if(d<d1){d2=d1;d1=d;id=h;}else if(d<d2)d2=d;}
+ return{edge:d2-d1,id};}
+// a small table of random offsets, repeating every voxel, that bends rubble's surface into lumps
+const WT=new Float32Array(6*6*6*3);for(let i=0;i<216;i++)for(let k=0;k<3;k++)WT[i*3+k]=hash2(i,k,808)-.5;
+function warp(u,v,z,o){const n=6,X=u*n,Y=v*n,Q=z*n,xi=Math.floor(X),yi=Math.floor(Y),zi=Math.floor(Q),fx=X-xi,fy=Y-yi,fz=Q-zi,w=a=>((a%n)+n)%n;
+ o[0]=o[1]=o[2]=0;for(let c=0;c<8;c++){const a=c&1,b=c>>1&1,d=c>>2,k=(w(xi+a)+n*w(yi+b)+n*n*w(zi+d))*3,f=(a?fx:1-fx)*(b?fy:1-fy)*(d?fz:1-fz);
+  o[0]+=WT[k]*f;o[1]+=WT[k+1]*f;o[2]+=WT[k+2]*f;}}
+// The solid is a smooth field: every voxel contributes a box whose faces fade over a width set by its style. Where the field
+// is above one half there is rock, so a lone edge rounds off, an inside corner fills in, and a flat face stays on the grid.
+// For one voxel and its 26 neighbours a ray is cast through every pixel to find that surface; the pixel is lit by the
+// surface's direction and darkened where rock stands close in front of it (ambient occlusion). A shape depends only on the
+// 27 styles, so it is ray-traced once and then tinted per material and height.
 function buildShape(key){
- const hh=key.length>27?+key.slice(0,key.length-27):8,sig=key.slice(-27),hard=sig[13]==='1',cls=[],wd=[],acl=[],awd=[];
- // A hard voxel is shaped as a crisp cube among hard voxels only (soft neighbours are drawn over it where they cover it).
- // A soft voxel is shaped as if every neighbour were soft, so it piles smoothly against walls. Both see every neighbour for shading.
- for(let i=0;i<27;i++){const c=+sig[i];cls.push(hard?(c===1?1:0):c?2:0);wd.push(hard?.03:.22);acl.push(c);awd.push(c===2?.22:.03);}
+ if(SHAPES.get(key))return;
+ const hh=+key.slice(0,key.length-27),sig=key.slice(-27),me=sig[13],round=!!ROUNDS[me];
+ // The shape a voxel is cut to: a rounding voxel treats every neighbour as its own kind, so it piles smoothly against walls;
+ // a crisp voxel is cut among crisp neighbours only (rounding neighbours are drawn over it where they cover it).
+ // Shading looks at every neighbour as it really is.
+ const mk=fn=>{const on=[],wd=[],sum=[],wp=[];for(let i=0;i<27;i++){const c=fn(sig[i]);on.push(c!=='0');wd.push(SW_[c]||.03);sum.push(c==='b');wp.push(c==='l');}return{on,wd,sum,wp};};
+ const SH=mk(c=>c==='0'?'0':round?me:(ROUNDS[c]?'0':c)),AL=mk(c=>c);
  const ox=Math.ceil((1+2*SW)*16),oy=Math.ceil(2*SW*hh+(1+SW)*16)+1,w=ox*2,h=oy+Math.ceil((2+2*SW)*hh+SW*16)+1,sh=new Float32Array(w*h);
- // field value at a point, or (own=true) which voxel contributes most there
- const pad=hard?.03:0; // hard cubes are drawn a hair oversize so no pixel is lost where they meet soft ground
- const F=(u,v,z,own,C,Wd)=>{let f=0,bw=0,bi=-1;C=C||cls;Wd=Wd||wd;
-  for(let c=0;c<27;c++){if(!C[c])continue;const ww=Wd[c],lim=.5+ww+pad;
-   const du=Math.abs(u-(c%3)+.5);if(du>=lim)continue;const dv=Math.abs(v-((c/3|0)%3)+.5);if(dv>=lim)continue;const dz=Math.abs(z-(c/9|0)+.5);if(dz>=lim)continue;
-   const k=(du<=lim-2*ww?1:(lim-du)/(2*ww))*(dv<=lim-2*ww?1:(lim-dv)/(2*ww))*(dz<=lim-2*ww?1:(lim-dz)/(2*ww));
-   f+=k;if(k>bw){bw=k;bi=c;}}
-  return own?bi:f;};
+ const pad=round?0:.03,wv=[0,0,0];
+ const F=(u,v,z,own,L)=>{L=L||SH;let f=0,bw=0,bi=-1,k13=0,warped=false;
+  for(let c=0;c<27;c++){if(!L.on[c])continue;const ww=L.wd[c],lim=.5+ww+pad;let pu=u,pv=v,pz=z;
+   if(L.wp[c]){if(!warped){warp(u,v,z,wv);warped=true;}pu+=wv[0]*.22;pv+=wv[1]*.22;pz+=wv[2]*.22;}
+   const du=Math.abs(pu-(c%3)+.5);if(du>=lim)continue;const dv=Math.abs(pv-((c/3|0)%3)+.5);if(dv>=lim)continue;const dz=Math.abs(pz-(c/9|0)+.5);if(dz>=lim)continue;
+   const ku=du<=lim-2*ww?1:(lim-du)/(2*ww),kv=dv<=lim-2*ww?1:(lim-dv)/(2*ww),kz=dz<=lim-2*ww?1:(lim-dz)/(2*ww);
+   const k=L.sum[c]?Math.max(0,ku+kv+kz-2):ku*kv*kz; // block: a flat chamfer, and a groove where two blocks meet
+   f+=k;if(c===13)k13=k;if(k>bw){bw=k;bi=c;}}
+  return own?(k13>0&&k13>=bw-1e-3?13:bi):f;}; // on a tie this voxel draws the pixel, so no gap is left between two
  const dz=hh/8,lo=-SW,hi=1+SW,ds=.05,e=.03;
  for(let py=0;py<h;py++)for(let px=0;px<w;px++){
   const a=(py-oy+.5+16)/hh,b=(px-ox+.5)/16,u1=(a+b)/2,v1=(a-b)/2; // where this pixel's ray crosses the voxel's top plane
@@ -76,18 +107,30 @@ function buildShape(key){
   if(!hit)continue;let ta=t+ds,tb=t;for(let i=0;i<5;i++){const tm=(ta+tb)/2;if(F(u1+tm,v1+tm,1+tm*dz)>=.5)tb=tm;else ta=tm;}
   const hu=u1+tb,hv=v1+tb,hz=1+tb*dz;if(F(hu,hv,hz,true)!==13)continue; // the surface here belongs to a neighbour
   const gu=F(hu+e,hv,hz)-F(hu-e,hv,hz),gv=F(hu,hv+e,hz)-F(hu,hv-e,hz),gz=F(hu,hv,hz+e)-F(hu,hv,hz-e),gl=Math.hypot(gu,gv,gz)||1;
-  const nu=-gu/gl,nv=-gv/gl,nz=-gz/gl,wz=Math.max(0,nz)**2,wu=Math.max(0,nu)**2,wv=Math.max(0,nv)**2,sm=wz+wu+wv;
-  let s=sm>1e-4?(1.12*wz+.58*wu+.8*wv)/sm:.5;
-  s*=1-.5*Math.min(1,1.5*F(hu+nu*.3,hv+nv*.3,hz+nz*.3,false,acl,awd)+.8*F(hu+nu*.6,hv+nv*.6,hz+nz*.6,false,acl,awd));
+  let nu=-gu/gl,nv=-gv/gl,nz=-gz/gl,glint=0;
+  if(me==='c'){ // facets: each third of a face tilts a little its own way, and a few catch the light
+   const fu=Math.floor(hu*3),fv=Math.floor(hv*3),fz=Math.floor(hz*3),tri=(hu*3-fu)+(hv*3-fv)+(hz*3-fz)>1.5?1:0,fh=hash3(fu*2+tri,fv,fz,33);
+   nu+=(hash3(fu*2+tri,fv,fz,34)-.5)*.35;nv+=(hash3(fu*2+tri,fv,fz,35)-.5)*.35;nz+=(fh-.5)*.2;const l=Math.hypot(nu,nv,nz);nu/=l;nv/=l;nz/=l;}
+  const wz=Math.max(0,nz)**2,wu=Math.max(0,nu)**2,wvv=Math.max(0,nv)**2,sm=wz+wu+wvv;
+  let s=sm>1e-4?(1.12*wz+.58*wu+.8*wvv)/sm:.5;
+  if(me==='p')s=.82+(s-.82)*.55+(vper(hu,hv,hz,5,9)-.5)*.06;                         // ash: low contrast, powdery
+  else if(me==='l'){const p=pebbles(hu,hv,hz);s*=(p.edge<.12?.62:1)*(.86+.28*p.id);}  // rubble: stones and gaps
+  else if(me==='c')s*=1.08;                                                           // glass: bright
+  s*=1-.5*Math.min(1,1.5*F(hu+nu*.3,hv+nv*.3,hz+nz*.3,false,AL)+.8*F(hu+nu*.6,hv+nv*.6,hz+nz*.6,false,AL));
   sh[py*w+px]=Math.max(.05,s);}
  SHAPES.set(key,{ox,oy,w,h,sh});
 }
 // build queued shapes for a few milliseconds, then ask for another frame until none are left
-function buildSome(ms){const t=performance.now();let n=0;while(SQ.length&&performance.now()-t<ms){buildShape(SQ.shift());n++;}return n;}
-function voxSpr(key,m,z){const k=key+'|'+m+'|'+z;let c=VSPR.get(k);if(c)return c;
+function buildSome(ms){const t=performance.now();let n=0;while(SQ.length&&performance.now()-t<ms){const k=SQ.shift();if(!SHAPES.get(k)){buildShape(k);n++;}}return n;}
+// v picks one of three variants, so neighbouring voxels of the same kind are not identical: granite gets its own mottling,
+// glass its own glints. Everything else ignores it.
+function voxSpr(key,m,z,v){const st=sty(m);if(st!=='b'&&st!=='c')v=0;const k=key+'|'+m+'|'+z+'|'+v;let c=VSPR.get(k);if(c)return c;
  const sp=SHAPES.get(key),col=rgbOf(m),lv=.72+.02*Math.min(31,4+(z+1)*5);c=document.createElement('canvas');c.width=sp.w;c.height=sp.h;
  const g=c.getContext('2d'),img=g.createImageData(sp.w,sp.h),d=img.data,sh=sp.sh;
- for(let i=0;i<sh.length;i++){const s=sh[i];if(!s)continue;const f=s*lv*(hash2(i%sp.w,(i/sp.w)|0,m)<.14?.88:1),j=i*4;
+ for(let i=0;i<sh.length;i++){const s=sh[i];if(!s)continue;const px=i%sp.w,py=(i/sp.w)|0,j=i*4;
+  let f=s*lv*(hash2(px,py,m+v*50)<.14?.88:1);
+  if(st==='b')f*=.92+.14*hash2((px/3|0)+v*17,(py/2|0),m*3+v);       // granite: blotchy mottling
+  else if(st==='c'&&s>.95&&hash2(px,py,v*31+5)<.025)f=1.7;          // glass: a few sparkling pixels
   d[j]=Math.min(255,col[0]*f);d[j+1]=Math.min(255,col[1]*f);d[j+2]=Math.min(255,col[2]*f);d[j+3]=255;}
  g.putImageData(img,0,0);VSPR.set(k,c);return c;}
 // the same picture as a flat silhouette in the fog colour
@@ -257,12 +300,19 @@ function draw(){
  const put=(m,o)=>{const i=I(o.x,o.y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
  for(const f of G.feats)if(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier')put(fm,f);
  const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1,hh0=HH();
- const anc=(x,y)=>{const v=toV(x,y);return[(v[0]-v[1])*16,(v[0]+v[1])*hh0-G.hgt[I(x,y)]*16+hh0];};
- const mover=o=>{if(o._mv!==G.t||al>=1)return null;const a=anc(o._px,o._py),b=anc(o.x,o.y);return{x0:a[0],y0:a[1],x1:b[0],y1:b[1],p:al};};
- const putM=(m,o)=>{let x=o.x,y=o.y;if(o._mv===G.t&&al<1){const a=toV(o._px,o._py),b=toV(x,y);if(a[0]+a[1]>b[0]+b[1]){x=o._px;y=o._py;}}
-  const i=I(x,y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
+ const anc=(x,y,z)=>{const v=toV(x,y);return[(v[0]-v[1])*16,(v[0]+v[1])*hh0-(z==null?G.hgt[I(x,y)]:z)*16+hh0];};
+ const mover=o=>{if(o._mv!==G.t||al>=1)return null;const a=anc(o._px,o._py,o._pz),b=anc(o.x,o.y,o.z);return{x0:a[0],y0:a[1],x1:b[0],y1:b[1],p:al};};
+ // an entity is drawn with the tile it is leaving or entering, whichever is further back, at that tile's height
+ const putM=(m,o)=>{let x=o.x,y=o.y,z=o.z;if(o._mv===G.t&&al<1){const a=toV(o._px,o._py),b=toV(x,y);if(a[0]+a[1]>b[0]+b[1]){x=o._px;y=o._py;z=o._pz;}}
+  o._dz=z==null?G.hgt[I(x,y)]:z;o._gx=x;o._gy=y;const i=I(x,y);if(m.has(i))m.get(i).push(o);else m.set(i,[o]);};
+ const ghosts=[];
  for(const c of G.cols)if(c.by==null)putM(cm,c);for(const e of G.crit)putM(em,e);for(const q of G.sites)put(sm,q);for(const f of G.fx)put(xm,f);
  const hh=HH(),VW=cam.yaw&1?H:W,VH=cam.yaw&1?W:H,dgF=Math.round(cam.y/hh);
+ function drawEnt(o,isCol,group){
+  if(!isCol){const mv=mover(o),a=anc(o.x,o.y,o.z),ex=mv?Math.round(mv.x0+(mv.x1-mv.x0)*mv.p):a[0],ey=mv?Math.round(mv.y0+(mv.y1-mv.y0)*mv.p-(mv.p*4%2<1?1:0)):a[1],f=facing(o).f;
+   shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(o))rc(ex-2,ey-4,2,2,'#d02020');return;}
+  const n=group?Math.max(0,group.indexOf(o)):0,len=group?group.length:1,off=n*5-(len-1)*2,mv=mover(o);
+  if(mv){mv.x0+=off;mv.x1+=off;charSpr(o,0,0,mv);}else{const a=anc(o.x,o.y,o.z);charSpr(o,a[0]+off,a[1],null);}}
  for(let dg=0;dg<VW+VH-1;dg++)for(let vx=Math.max(0,dg-VH+1);vx<=Math.min(VW-1,dg);vx++){
   const vy=dg-vx,sx=(vx-vy)*16,sy=dg*hh;if(sx<vx0||sx>vx1||sy<vy0||sy>vy1)continue;
   const wp_=toW(vx,vy),x=wp_[0],y=wp_[1],i=I(x,y),h=G.hgt[i];
@@ -274,16 +324,28 @@ function draw(){
   ctx.globalAlpha=1;
   // Every voxel with a face toward the viewer is drawn from a picture shaped by its 26 neighbours. Until those pictures
   // exist (they are built a few at a time), the column is drawn with the quicker column picture instead.
-  const oc=(a,b,z)=>{if(z<0)return 2;if(z>=Z||a<0||b<0||a>=VW||b>=VH)return 0;const n=toW(a,b),j=I(n[0],n[1]);if(n[0]>=PW&&!G.rev[j])return 0;
-   const m=G.vox[(z*H+n[1])*W+n[0]];return m?(M[m].soft?2:1):0;};
-  let ready=true;const vl=[];
-  for(let z=0;z<h;z++){const m=G.vox[VI(x,y,z)];if(!m)continue;const o1=oc(vx,vy,z+1),o2=oc(vx+1,vy,z),o3=oc(vx,vy+1,z);
-   if(M[m].soft?(o1&&o2&&o3):(o1===1&&o2===1&&o3===1))continue; // nothing of it can be seen
+  const oc=(a,b,z)=>{if(z<0)return'h';if(z>=Z||a<0||b<0||a>=VW||b>=VH)return'0';const n=toW(a,b),j=I(n[0],n[1]);if(n[0]>=PW&&!G.rev[j])return'0';
+   return sty(G.vox[(z*H+n[1])*W+n[0]]);};
+  let ready=true,hollowCol=false;const vl=[],miss=[];
+  for(let z=0;z<h;z++){const m=G.vox[VI(x,y,z)];if(!m){hollowCol=true;continue;}const o1=oc(vx,vy,z+1),o2=oc(vx+1,vy,z),o3=oc(vx,vy+1,z);
+   if(o1!=='0'&&o2!=='0'&&o3!=='0'&&(ROUNDS[sty(m)]||!(ROUNDS[o1]||ROUNDS[o2]||ROUNDS[o3])))continue; // nothing of it can be seen
    let sig='';for(let c=-1;c<=1;c++)for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++)sig+=oc(vx+a,vy+b,z+c);
    const key=hh+sig,shp=SHAPES.get(key);
-   if(!shp){ready=false;if(shp===undefined){SHAPES.set(key,null);SQ.push(key);}}else vl.push(z,m,key);}
-  if(ready)for(let q=0;q<vl.length;q+=3){const cs=voxSpr(vl[q+2],vl[q+1],vl[q]),sp=SHAPES.get(vl[q+2]);
-   ctx.drawImage(cs,sx-sp.ox,sy-vl[q]*16-sp.oy);if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-sp.ox,sy-vl[q]*16-sp.oy);ctx.globalAlpha=1;}}
+   if(!shp){ready=false;miss.push(key);if(shp===undefined){SHAPES.set(key,null);SQ.push(key);}}vl.push(z,m,key);}
+  // Things standing under rock in this tile: the rock below them is drawn first, then they are, then the rock above.
+  const cc=cm.get(i),ee=em.get(i),under=[];
+  if(cc)for(const c of cc)if(c._dz<h)under.push(c);if(ee)for(const e of ee)if(e._dz<h)under.push(e);
+  const doorUnder=x===47&&y===24&&!G.gateOpen&&G.gateZ<h;
+  if(!ready&&(hollowCol||under.length)){for(const k of miss)buildShape(k);ready=true;} // the quick picture cannot show a hollow
+  const vox=(lo,hi_)=>{for(let q=0;q<vl.length;q+=3){if(vl[q]<lo||vl[q]>=hi_)continue;const cs=voxSpr(vl[q+2],vl[q+1],vl[q],(x*7+y*13+vl[q]*5)%3),sp=SHAPES.get(vl[q+2]);
+   ctx.drawImage(cs,sx-sp.ox,sy-vl[q]*16-sp.oy);if(fa){ctx.globalAlpha=fa;ctx.drawImage(fogOf(cs),sx-sp.ox,sy-vl[q]*16-sp.oy);ctx.globalAlpha=1;}}};
+  if(ready){let split=h;for(const o of under)split=Math.min(split,o._dz);if(doorUnder)split=Math.min(split,G.gateZ);
+   vox(0,split);
+   if(under.length||doorUnder){ctx.globalAlpha=1-fa;
+    if(doorUnder){const gy=sy-G.gateZ*16+hh;rc(sx-8,gy-22,16,24,'#3a2c20');rc(sx-8,gy-12,16,2,'#aab3bd');}
+    for(const o of under){const isC=!!(cc&&cc.includes(o));drawEnt(o,isC,cc);if(isC)ghosts.push(o);}
+    ctx.globalAlpha=1;}
+   vox(split,99);}
   else{const sv=(a,b)=>a<0||b<0||a>=VW||b>=VH?0:seen(toW(a,b)),sn=n=>n<h?'0':n>h?'2':'1';
    const sg=sn(sv(vx-1,vy))+sn(sv(vx,vy-1))+sn(hE)+sn(hS)+sn(sv(vx-1,vy-1))+sn(sv(vx+1,vy-1))+sn(sv(vx+1,vy+1))+sn(sv(vx-1,vy+1));
    const mt=G.vox[VI(x,y,h-1)],cs=colSpr(hh,mt,(h>1&&G.vox[VI(x,y,h-2)])||mt,h,h-z0,sg);
@@ -294,17 +356,18 @@ function draw(){
   const ty=sy-h*16,ay=ty+hh,k=K(x,y);
   if(G.stock[k])diamond(sx,ty,'rgba(240,192,64,.5)');
   if(G.digs[k])diamond(sx,ty,'rgba(220,60,60,.45)',1);
-  if(x===47&&y===24&&!G.gateOpen){rc(sx-8,ay-22,16,24,'#3a2c20');rc(sx-8,ay-12,16,2,'#aab3bd');}
+  if(x===47&&y===24&&!G.gateOpen&&!(G.gateZ<h)){rc(sx-8,ay-22,16,24,'#3a2c20');rc(sx-8,ay-12,16,2,'#aab3bd');}
   const ss=sm.get(i);if(ss)for(const q of ss){diamond(sx,ty,'rgba(120,200,255,.8)');for(let n=0;n<q.need;n++)rc(sx-6+n*5,ay-2,4,4,n<q.have?'#7fd0ff':'#234');}
   const ff=fm.get(i);if(ff)for(const f of ff){shadow(sx,ay+1,FSH[f.k]||6);featSpr(f,sx,ay);}
   const tk=G.tok[k];if(tk){const nc=Math.min(3,tk.length);shadow(sx-13+nc*4.5,ay+3+(ff?4:0),3+nc*4);}
   if(tk)for(let n=0;n<tk.length;n++)tokSpr(tk[n],sx-13+(n%3)*9,ay-4-Math.floor(n/3)*8+(ff?4:0));
-  const ee=em.get(i);if(ee)for(const e of ee){const mv=mover(e),ex=mv?Math.round(mv.x0+(mv.x1-mv.x0)*mv.p):anc(e.x,e.y)[0],ey=mv?Math.round(mv.y0+(mv.y1-mv.y0)*mv.p-(mv.p*4%2<1?1:0)):anc(e.x,e.y)[1],f=facing(e).f;
-   shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(e))rc(ex-2,ey-4,2,2,'#d02020');}
-  const cc=cm.get(i);if(cc)for(let n=0;n<cc.length;n++){const c=cc[n],mv=mover(c),o=n*5-(cc.length-1)*2;if(mv){mv.x0+=o;mv.x1+=o;charSpr(c,0,0,mv);}else{const a=anc(c.x,c.y);charSpr(c,a[0]+o,a[1],null);}}
+  if(ee)for(const e of ee)if(!under.includes(e))drawEnt(e,false);
+  if(cc)for(const c of cc)if(!under.includes(c))drawEnt(c,true,cc);
   ctx.globalAlpha=1;
   const xx=xm.get(i);if(xx){let row=0;for(const f of xx){const w=f.dice.length*8;for(let n=0;n<f.dice.length;n++)dieSpr(sx-w/2+n*8,ay-44-row*9,f.dice[n],f.dice[n]>=f.tgt);row++;}}
  }
+ // colonists under rock show through it faintly, so they are never lost
+ ctx.globalAlpha=.38;for(const c of ghosts)drawEnt(c,true,cm.get(I(c._gx,c._gy)));
  ctx.globalAlpha=1;ctx.setTransform(1,0,0,1,0,0);
  if(SQ.length&&buildSome(14))redraw();
  const t=tod(),a=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;if(a)rc(0,0,cw,ch,'rgba(8,10,44,'+a+')');
