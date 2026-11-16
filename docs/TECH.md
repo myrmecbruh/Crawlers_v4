@@ -67,4 +67,6 @@
 
 ## Saves
 - [gospel] Autosave to browser storage.
+- [gospel] Opening the playable link always gives a fresh load with a new game.
+- [slop] The autosave is only picked up by the automatic reload after an update, so an update does not cost the game in progress. Refreshing after such a reload also continues it.
 - [slop] Export and import of a save as a file.
