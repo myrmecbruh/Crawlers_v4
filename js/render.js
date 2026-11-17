@@ -291,7 +291,7 @@ vec4 pr(vec3 w,out float a,out float N){vec3 d=w-uF;float rx=d.x*uK.x-d.y*uK.y,r
 const LOOK=`uniform vec3 uFog;uniform float uNight;uniform float uHH;
 // distance fog: haze starts 2 rows behind the point you look at and reaches 75% 14 rows further back
 vec3 look(vec3 c,float a){float far=-a*uHH/8.,fa=clamp((far-2.)/12.*.75,0.,.75);c=mix(c,uFog,fa);return mix(c,vec3(8.,10.,44.)/255.,uNight);}`;
-let TP,SP,DP,revTex;
+let TP,SP,DP,revTex,floorTex=null;
 function glInit(){
  TP=mkProg(`#version 300 es
 precision highp float;layout(location=0)in vec3 aP;layout(location=1)in float aM;layout(location=2)in float aA;
@@ -300,7 +300,7 @@ out vec3 vW;flat out int vM;out float vA;out float vR;
 void main(){float a,N;vec4 s=pr(aP,a,N);gl_Position=vec4(s.x*2./uVP.x,-s.y*2./uVP.y,-N/256.,1.);vW=aP;vM=int(aM+.5);vA=aA;vR=a;}`,
  `#version 300 es
 precision highp float;in vec3 vW;flat in int vM;in float vA;in float vR;
-uniform vec4 uK;uniform float uK2;uniform vec3 uF;uniform vec3 uPal[24];uniform highp sampler2D uRev;
+uniform vec4 uK;uniform float uK2;uniform vec3 uF;uniform highp sampler2D uFloor;uniform vec3 uPal[24];uniform highp sampler2D uRev;
 ${LOOK}
 out vec4 o;
 float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -312,6 +312,12 @@ void main(){
  vec3 r=vec3(n.x*uK.x-n.y*uK.y,n.x*uK.y+n.y*uK.x,n.z);
  if((r.x+r.y)*uK.w+r.z*uK2<0.){n=-n;r=-r;}
  ivec2 c=ivec2(floor(vW.xy-n.xy*.03));if(texelFetch(uRev,c,0).r<.5)discard;
+ // High walls fade out between 3 and 4 metres above the floor they face (a voxel is 3 ft, 0.9144 m), in an ordered
+ // dither so it stays pixel art. The floor is the ground of the tile the face looks onto.
+ {ivec2 fc=ivec2(floor(vW.xy+n.xy*.5));float fl=texelFetch(uFloor,fc,0).r*255.,above=(vW.z-fl)*.9144;
+  if(above>3.){ivec2 p=ivec2(gl_FragCoord.xy)&3;int bi=p.x+p.y*4;
+   float bay=float(bi==0?0:bi==1?8:bi==2?2:bi==3?10:bi==4?12:bi==5?4:bi==6?14:bi==7?6:bi==8?3:bi==9?11:bi==10?1:bi==11?9:bi==12?15:bi==13?7:bi==14?13:5)/16.+1./32.;
+   if(above-3.>=bay)discard;}}
  float wz=pow(max(r.z,0.),2.),wu=pow(max(r.x,0.),2.),wv=pow(max(r.y,0.),2.),sm=wz+wu+wv;
  float s=sm>1e-4?(1.12*wz+.58*wu+.8*wv)/sm:.5;
  vec3 q=floor(vW*16.);float sp=(h3(q)<.14?.88:1.)*(.93+.14*h3(floor(vW-n*.06)+.5)); // speckle, and each voxel's own tone
@@ -423,13 +429,16 @@ function draw_(){
  // which ground has been seen: the plot always, the zone where a party has looked
  const rev=new Uint8Array(W*H);for(let i=0;i<W*H;i++)rev[i]=(i%W)<PW||G.rev[i]?255:0;
  gl.bindTexture(gl.TEXTURE_2D,revTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,rev);
+ // each tile's floor height, for the wall fade
+ if(!floorTex){floorTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,floorTex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);}
+ gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,G.hgt);
  const K=camK(),t=tod(),night=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;
  const common=P=>{gl.useProgram(P.p);gl.uniform3f(P.u.uF,cam.fx,cam.fy,cam.fz);gl.uniform4f(P.u.uK,K.cs,K.sn,K.hh,K.k1);gl.uniform1f(P.u.uK2,K.k2);
   gl.uniform2f(P.u.uVP,vw,vh);gl.uniform2f(P.u.uSh,SHIFT[0],SHIFT[1]);gl.uniform3f(P.u.uFog,38/255,42/255,54/255);gl.uniform1f(P.u.uNight,night);gl.uniform1f(P.u.uHH,K.hh);};
  gl.viewport(0,0,vw,vh);gl.clearColor(11/255,11/255,16/255,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
  // terrain
- common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
+ common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
  gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}gl.disable(gl.CULL_FACE);
  // gather sprites and markers
  const st=[],dy=[],ov=[],gh=[],dc=[],shd=[];resetAtlas(DYN);SHL=shd;
