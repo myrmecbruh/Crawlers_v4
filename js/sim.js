@@ -157,6 +157,11 @@ function partyJob(c){
  if(partyHold(c)){c.job={t:'wait',n:2};return;}                                                // wait for stragglers
  if(e.state==='return')return goHome(c);
  const f=flood(c);
+ // a leader with no hands free walks the party to the nearest loot, so the others can pick it up
+ const leadTo=()=>{if(!isLead||!go.loot)return false;const ff=flood(c);let b=null,bd=1e9;
+  for(const k in G.tok){const p=tparse(k);if(p[0]<PW||!G.rev[I(p[0],p[1])]||!G.tok[k].some(t=>match(t,go.loot)))continue;const d=ff.dist[N(p[0],p[1],p[2])];if(d>=0&&d<bd){bd=d;b=p;}}
+  return!!b&&bd>2&&setJob(c,{t:'wait',n:2},b[0],b[1],true,b[2]);};
+ if(e.state!=='return'&&mem.some(d=>d.need.hun>=5||d.need.rest>=6)){e.state='return';log('The party is hungry and worn out and turns for home.');return goHome(c);}
  const done=why=>{e.state='return';log('The party '+why+' and turns for home.');goHome(c);};
  let loose=0;if(go.loot)for(const k in G.tok){const p=tparse(k);if(p[0]>=PW&&G.rev[I(p[0],p[1])]&&f.dist[N(p[0],p[1],p[2])]>=0)/* only loot someone can reach */loose+=G.tok[k].filter(t=>match(t,go.loot)).length;}
  if(loose>0&&cap(c)>c.carry.length&&fetchJob(c,go.loot,'keep',null,{zone:1,ok:near}))return;
@@ -171,15 +176,15 @@ function partyJob(c){
   if(mem.some(d=>!d.armed)){c.job={t:'wait',n:2};return;}
   if(!mem.some(d=>d.carry.some(isWood)))return done(G.feats.some(q=>q.k==='brazier')?'has lit what it carried':'has no wood to carry');
   c.job={t:'wait',n:3};return;}
- const freeT=mem.reduce((a,d)=>a+cap(d)-d.carry.length,0);
- if(e.goal==='ore'&&freeT<=loose){if(loose===0||freeT===0)return done('is laden');c.job={t:'wait',n:3};return;}
+ const freeT=mem.reduce((a,d)=>a+Math.max(0,cap(d)-d.carry.length),0);
+ if(e.goal==='ore'&&freeT<=loose){if(loose===0||freeT===0)return done('is laden');if(leadTo())return;c.job={t:'wait',n:3};return;}
  let b=null,bd=1e9;
  for(const ft of G.feats){if(ft.x<PW||ft.left<=0||!go.feats.includes(ft.k)||!G.rev[I(ft.x,ft.y)]||!near(ft.x,ft.y)||rsv('f'+ft.id))continue;const d=reachD(f,ft.x,ft.y,true,ft.z);if(d>=0&&d<bd){bd=d;b=ft;}}
  if(b&&setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true,b.z))return;
  if(!isLead){c.job={t:'wait',n:2};return;} // only the leader explores and decides when to go home
  let bi=-1;bd=1e9;for(let y=1;y<H-1;y++)for(let x=PW;x<W-1;x++){const i=I(x,y);if(G.rev[i])continue;const di=reachD(f,x,y,false,'any');if(di>=0&&di<bd){bd=di;bi=i;}}
  if(bi>=0&&setJob(c,{t:'wait',n:1},bi%W,Math.floor(bi/W),false,'any'))return;
- if(!G.feats.some(ft=>ft.x>=PW&&ft.left>0&&go.feats.includes(ft.k)&&rsv('f'+ft.id))&&(loose===0||freeT===0||cap(c)<=c.carry.length)){ // a full leader cannot lead the others to more loot
+ if(!G.feats.some(ft=>ft.x>=PW&&ft.left>0&&go.feats.includes(ft.k)&&rsv('f'+ft.id))&&(loose===0||freeT===0||(cap(c)<=c.carry.length&&!leadTo()))){ // a full leader cannot lead the others to more loot
   if(e.goal==='map')e.mapped=true;
   return done(e.goal==='map'?'has walked it all':'finds nothing more');}
  c.job={t:'wait',n:3};
