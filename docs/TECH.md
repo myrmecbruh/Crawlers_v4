@@ -46,7 +46,8 @@
 - [gospel] Only voxel sides that touch the air of walkable areas are drawn (the first game's rule), so near-side walls do not hide what is behind them. There is nothing outside the world's walls: no flat stone beyond them.
 - [slop] Walkable air is the air over ground tiles and the air hollowed inside rock (tunnels). So the outer faces of walls and the tops of walls and outcrops are not drawn, and taps pass through rock that is not drawn.
 - [gospel] High walls fade out between the 3rd and 4th metre above the floor they face, as in the first game (no cutaway).
-- [slop] A voxel is 3 ft (0.9144 m), so the fade runs from about 3.3 to 4.4 voxels up; it is an ordered 4 x 4 dither so it stays pixel art.
+- [gospel] The fade is smooth, not dithered.
+- [slop] A voxel is 3 ft (0.9144 m), so the fade runs from about 3.3 to 4.4 voxels up. The rock below is drawn solid first, then the band is blended over it.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 2 rows behind the point you are looking at and reaches 75% haze 14 rows further back. Shadows are three-band soft dark ellipses on the ground.

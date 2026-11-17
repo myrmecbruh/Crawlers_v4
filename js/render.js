@@ -300,7 +300,7 @@ out vec3 vW;flat out int vM;out float vA;out float vR;
 void main(){float a,N;vec4 s=pr(aP,a,N);gl_Position=vec4(s.x*2./uVP.x,-s.y*2./uVP.y,-N/256.,1.);vW=aP;vM=int(aM+.5);vA=aA;vR=a;}`,
  `#version 300 es
 precision highp float;in vec3 vW;flat in int vM;in float vA;in float vR;
-uniform vec4 uK;uniform float uK2;uniform vec3 uF;uniform highp sampler2D uFloor;uniform vec3 uPal[24];uniform highp sampler2D uRev;
+uniform vec4 uK;uniform float uK2;uniform vec3 uF;uniform highp sampler2D uFloor;uniform int uPass;uniform vec3 uPal[24];uniform highp sampler2D uRev;
 ${LOOK}
 out vec4 o;
 float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -312,12 +312,12 @@ void main(){
  vec3 r=vec3(n.x*uK.x-n.y*uK.y,n.x*uK.y+n.y*uK.x,n.z);
  if((r.x+r.y)*uK.w+r.z*uK2<0.){n=-n;r=-r;}
  ivec2 c=ivec2(floor(vW.xy-n.xy*.03));if(texelFetch(uRev,c,0).r<.5)discard;
- // High walls fade out between 3 and 4 metres above the floor they face (a voxel is 3 ft, 0.9144 m), in an ordered
- // dither so it stays pixel art. The floor is the ground of the tile the face looks onto.
- {ivec2 fc=ivec2(floor(vW.xy+n.xy*.5));float fl=texelFetch(uFloor,fc,0).r*255.,above=(vW.z-fl)*.9144;
-  if(above>3.){ivec2 p=ivec2(gl_FragCoord.xy)&3;int bi=p.x+p.y*4;
-   float bay=float(bi==0?0:bi==1?8:bi==2?2:bi==3?10:bi==4?12:bi==5?4:bi==6?14:bi==7?6:bi==8?3:bi==9?11:bi==10?1:bi==11?9:bi==12?15:bi==13?7:bi==14?13:5)/16.+1./32.;
-   if(above-3.>=bay)discard;}}
+ // High walls fade smoothly out between 3 and 4 metres above the floor they face (a voxel is 3 ft, 0.9144 m). The floor
+ // is the ground of the tile the face looks onto. Drawn in two passes: solid rock, then the fading band blended over it.
+ float fa_=0.;{ivec2 fc=ivec2(floor(vW.xy+n.xy*.5));float fl=texelFetch(uFloor,fc,0).r*255.,above=(vW.z-fl)*.9144;
+  fa_=clamp(above-3.,0.,1.);
+  if(uPass==0&&fa_>0.)discard;            // first pass: solid rock below 3 m
+  if(uPass==1&&(fa_<=0.||fa_>=1.))discard;}// second pass: only the band, blended
  float wz=pow(max(r.z,0.),2.),wu=pow(max(r.x,0.),2.),wv=pow(max(r.y,0.),2.),sm=wz+wu+wv;
  float s=sm>1e-4?(1.12*wz+.58*wu+.8*wv)/sm:.5;
  vec3 q=floor(vW*16.);float sp=(h3(q)<.14?.88:1.)*(.93+.14*h3(floor(vW-n*.06)+.5)); // speckle, and each voxel's own tone
@@ -327,7 +327,7 @@ void main(){
  else if(vM==3){s*=1.08;if(h3(q+7.)<.008&&r.z>.5)s=1.6;}
  float lv=clamp(1.+.13*(vW.z-uF.z),.5,1.55); // height tint: 13% lighter per voxel above the height you look at, darker below
  vec3 col=uPal[vM]*s*lv*sp*vA;
- o=vec4(look(col,vR),1.);}`);
+ o=vec4(look(col,vR),1.-fa_);}`);
  SP=mkProg(`#version 300 es
 precision highp float;layout(location=0)in vec3 aF;layout(location=1)in vec2 aO;layout(location=2)in vec2 aU;layout(location=3)in float aH;
 ${PROJ}
@@ -439,7 +439,10 @@ function draw_(){
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
  // terrain
  common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
- gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}gl.disable(gl.CULL_FACE);
+ gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);gl.uniform1i(TP.u.uPass,0);for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
+ gl.uniform1i(TP.u.uPass,1);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+ for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
+ gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
  // gather sprites and markers
  const st=[],dy=[],ov=[],gh=[],dc=[],shd=[];resetAtlas(DYN);SHL=shd;
  const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1;
