@@ -43,6 +43,8 @@
 - [slop] Real geometry, not just surface: ash rounds over 0.4 of a voxel and slumps into soft mounds; rubble's surface is pushed into knobbly lumps up to a fifth of a voxel; granite keeps firm blocks with small bevelled edges and blotchy mottling; slag-glass (the ruin walls) is pushed into flat tilted facets, brighter, with rare sparkles. Anything else: a plain cube.
 - [slop] The shaping is looks only: walking, digging and building still work on whole voxels.
 - [slop] Ruin walls get window holes and zone cliffs get undercut ledges.
+- [gospel] Only voxel sides that touch the air of walkable areas are drawn (the first game's rule), so near-side walls do not hide what is behind them. There is nothing outside the world's walls: no flat stone beyond them.
+- [slop] Walkable air is the air over ground tiles and the air hollowed inside rock (tunnels). So the outer faces of walls and the tops of walls and outcrops are not drawn, and taps pass through rock that is not drawn.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 2 rows behind the point you are looking at and reaches 75% haze 14 rows further back. Shadows are three-band soft dark ellipses on the ground.

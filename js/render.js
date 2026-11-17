@@ -41,7 +41,11 @@ function panBy(f0,dx,dy){const K=camK(),d=unproj(K,dx,dy);cam.fx=Math.max(1,Math
 // Each voxel also varies: see 'Voxel variety' below.
 const STYLE={1:'b',2:'l',3:'c',19:'p'},SW_={p:.4,l:.2,b:.14,c:.05,h:.05},RES=4,CH=16,PADS=3;
 const styleOf=m=>STYLE[m]||'h';
-function vsolid(i,j,k){if(k<0)return 1;if(i<0||j<0||i>=W||j>=H||k>=Z)return 0;return G.vox[(k*H+j)*W+i];}
+function vsolid(i,j,k){if(i<0||j<0||i>=W||j>=H||k>=Z)return 0;if(k<0)return G.mask[j*W+i]?1:0;return G.vox[(k*H+j)*W+i];}
+// Only rock that faces the air of a walkable place is drawn (the rule from the first game): air over ground tiles, and air
+// hollowed inside rock (tunnels). The outer faces of walls and the tops of walls and outcrops face nothing anyone walks in,
+// so they are left out, and a near-side wall no longer hides what is behind it.
+function walkAir(i,j,k){if(i<0||j<0||i>=W||j>=H||k<0)return false;const m=G.mask[j*W+i];if(m===2)return true;return m===1&&k<G.hgt[j*W+i];}
 // ---- Voxel variety. Every voxel has a variant (0-3) and a turn (0-3 quarter turns about the vertical), picked from a
 // hash of its position. The variant sets how far each exposed face bulges out or sinks in, whether one exposed top corner
 // is chipped off, and, turned by the turn, the pattern its surface is pushed into. Faces against another voxel never move,
@@ -122,11 +126,15 @@ function buildChunk(cx,cy){
   pushAt(x,y,z,o);x+=o[0];y+=o[1];z+=o[2];
   vd.push(x,y,z,m,ao);return VI_[q]=vd.length/5-1;};
  // a face for every sample edge, owned by this chunk, where rock meets air
+ // the voxel holding the air sample of a face must be walkable air, or the face is not drawn
+ // every face is wound so that, seen from the air side, it turns anticlockwise; faces seen from behind are then culled
+ const quadOut=(a,b,c,d,keep)=>{if(keep)idx.push(a,b,c,a,c,d);else idx.push(a,c,b,a,d,c);};
+ const airOK=(ix,iy,iz)=>walkAir(Math.floor((sx0+ix+.5)/RES),Math.floor((sy0+iy+.5)/RES),Math.floor((sz0+iz+.5)/RES));
  for(let iz=1;iz<nz-1;iz++)for(let iy=PADS;iy<PADS+CH*RES;iy++)for(let ix=PADS;ix<PADS+CH*RES;ix++){
   const s=F[at(ix,iy,iz)]>T;
-  if(s!==(F[at(ix+1,iy,iz)]>T)){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);idx.push(a,b,c,a,c,d);}
-  if(s!==(F[at(ix,iy+1,iz)]>T)){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);idx.push(a,b,c,a,c,d);}
-  if(s!==(F[at(ix,iy,iz+1)]>T)){const a=cellVert(ix-1,iy-1,iz),b=cellVert(ix,iy-1,iz),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);idx.push(a,b,c,a,c,d);}}
+  if(s!==(F[at(ix+1,iy,iz)]>T)&&(s?airOK(ix+1,iy,iz):airOK(ix,iy,iz))){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);quadOut(a,b,c,d,s);}
+  if(s!==(F[at(ix,iy+1,iz)]>T)&&(s?airOK(ix,iy+1,iz):airOK(ix,iy,iz))){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,!s);}
+  if(s!==(F[at(ix,iy,iz+1)]>T)&&(s?airOK(ix,iy,iz+1):airOK(ix,iy,iz))){const a=cellVert(ix-1,iy-1,iz),b=cellVert(ix,iy-1,iz),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,s);}}
  PC=null;
  return{v:new Float32Array(vd),i:new Uint32Array(idx)};
 }
@@ -391,7 +399,8 @@ function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#
 const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
 const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
 let PAL=null;
-const SHIFT=[0,0];
+const SHIFT=[0,0];let FRONT=0x0900; // gl.CW: the projection flips handedness (screen y runs down), so outward faces turn clockwise on screen
+
 // CSS pixels per game pixel, as actually drawn
 const pxs=()=>Math.max(1,Math.round(cam.s*(window.devicePixelRatio||1)))/(window.devicePixelRatio||1);
 // frames drawn in the last second and their average cost, for the counter on screen
@@ -421,7 +430,7 @@ function draw_(){
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
  // terrain
  common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
- for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
+ gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}gl.disable(gl.CULL_FACE);
  // gather sprites and markers
  const st=[],dy=[],ov=[],gh=[],dc=[],shd=[];resetAtlas(DYN);SHL=shd;
  const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1;
@@ -484,6 +493,6 @@ function pick(px,py){
  if(bc)return{x:bc.x,y:bc.y};
  const b=gx/16;for(let dz=Z+2-cam.fz;dz>-1-cam.fz;dz-=1/32){const a=(gy+dz*16)/K.hh,rx=(a+b)/2,ry=(a-b)/2;
   const x=cam.fx+rx*K.cs+ry*K.sn,y=cam.fy-rx*K.sn+ry*K.cs,z=cam.fz+dz,i=Math.floor(x),j=Math.floor(y),k=Math.floor(z);
-  if(i<0||j<0||i>=W||j>=H||k<0||k>=Z)continue;if(!seenAt(i,j))continue;if(G.vox[(k*H+j)*W+i])return{x:i,y:j,z:k};}
+  if(i<0||j<0||i>=W||j>=H||k<0||k>=Z)continue;if(!seenAt(i,j))continue;if(G.vox[(k*H+j)*W+i]&&(walkAir(i+1,j,k)||walkAir(i-1,j,k)||walkAir(i,j+1,k)||walkAir(i,j-1,k)||walkAir(i,j,k+1)||walkAir(i,j,k-1)))return{x:i,y:j,z:k};}
  return null;
 }
