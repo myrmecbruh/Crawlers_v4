@@ -161,8 +161,10 @@ function partyJob(c){
  const leadTo=()=>{if(!isLead||!go.loot)return false;const ff=flood(c);let b=null,bd=1e9;
   for(const k in G.tok){const p=tparse(k);if(p[0]<PW||!G.rev[I(p[0],p[1])]||!G.tok[k].some(t=>match(t,go.loot)))continue;const d=ff.dist[N(p[0],p[1],p[2])];if(d>=0&&d<bd){bd=d;b=p;}}
   return!!b&&bd>2&&setJob(c,{t:'wait',n:2},b[0],b[1],true,b[2]);};
- if(e.state!=='return'&&mem.some(d=>d.need.hun>=5||d.need.rest>=6)){e.state='return';log('The party is hungry and worn out and turns for home.');return goHome(c);}
- const done=why=>{e.state='return';log('The party '+why+' and turns for home.');goHome(c);};
+ if(e.state!=='return'&&mem.some(d=>d.need.hun>=6)){retreat(e,'starving: '+mem.find(d=>d.need.hun>=6).name+' needs food','bad');return goHome(c);}
+ const WHY={'is laden':['laden with loot','good'],'has what it came for':['found what it came for','good'],'has walked it all':['the zone is mapped','good'],
+  'finds nothing more':['nothing more to find',''],'has lit what it carried':['braziers lit','good'],'has no wood to carry':['no wood to carry','bad']};
+ const done=why=>{const w=WHY[why]||[why,''];retreat(e,w[0],w[1]);goHome(c);};
  let loose=0;if(go.loot)for(const k in G.tok){const p=tparse(k);if(p[0]>=PW&&G.rev[I(p[0],p[1])]&&f.dist[N(p[0],p[1],p[2])]>=0)/* only loot someone can reach */loose+=G.tok[k].filter(t=>match(t,go.loot)).length;}
  if(loose>0&&cap(c)>c.carry.length&&fetchJob(c,go.loot,'keep',null,{zone:1,ok:near}))return;
  if(e.goal==='card'&&mem.some(d=>d.carry.some(t=>t.card)))return done('has what it came for');
@@ -200,7 +202,9 @@ function sendParty(ids,goal){
  for(const id of ids){const c=col(id);endJob(c);c.party=true;c.armed=false;}
  log('A party of '+ids.length+' goes out through the gate: '+GOAL[goal].n.toLowerCase()+'.');
 }
-function recall(){if(G.exp&&G.exp.state!=='return'){G.exp.state='return';for(const c of G.cols)if(c.party&&!(c.job&&c.job.t==='rescue'))endJob(c);log('The recall bell rings.');}}
+// a party turning for home: logged, and announced with the reason
+function retreat(e,why,k){if(e.state==='return')return;e.state='return';log('The party turns for home: '+why+'.');emit('banner',{t:'The party turns for home',s:why.charAt(0).toUpperCase()+why.slice(1),k:k||''});}
+function recall(){if(G.exp&&G.exp.state!=='return'){retreat(G.exp,'the recall bell','');for(const c of G.cols)if(c.party&&!(c.job&&c.job.t==='rescue'))endJob(c);}}
 // ---- arriving at a job's place
 function arrive(c){
  const j=c.job;
@@ -241,7 +245,7 @@ function arrive(c){
   const r=roll(c,F.tr,F.sk||SKILL[M[F.m].f],F.d,tool+seam,'works '+F.n);
   if(F.card){const ks=['seam','dry','wander','seam','dry'];addTok(ft.x,ft.y,{card:ks[ri(ks.length)]},0,c.z);}
   else if(F.cage){if(G.cols.length<6){const d=mkCol(ft.x,ft.y);d.down=true;d.home=false;d.captive=true;d.need.hun=4;log('The cage opens. '+d.name+' cannot walk and must be carried.');}
-   if(G.exp)G.exp.state='return';}
+   if(G.exp)retreat(G.exp,'the captive is freed','good');}
   else{addTok(ft.x,ft.y,{m:F.m},0,ft.z!=null?ft.z:G.hgt[I(ft.x,ft.y)]);if(r.ok)pop(ft.x,ft.y,ft.z!=null?ft.z:G.hgt[I(ft.x,ft.y)],'+'+M[F.m].n,M[F.m].c);}
   if(ft.k==='nest'&&ft.left<=1)G.stats.nests++;
   ft.left--;if(ft.left<=0){if(F.grow)ft.grow=DAY*2;else G.feats=G.feats.filter(q=>q!==ft);}

@@ -45,7 +45,7 @@ function tabColony(){
    '<tr><td>Hands</td><td>'+itn(c.hands[0])+' / '+itn(c.hands[1])+'</td><td></td></tr><tr><td>Carrying</td><td>'+(c.carry.map(itn).join(', ')||'–')+' <span class="dim">('+c.carry.length+'/'+cap(c)+')</span></td><td></td></tr></table>';}
  h+=box(d,'250px','scroll');
  h+='<div class="box" style="height:52px"><div class="in">'+(askNew?'<button class="w14 bad" data-a="new">Yes, new world</button><button class="w10" data-a="keep">Keep it</button>':
-  '<button class="w14" data-a="new">New world</button><button class="w10" disabled>Keep it</button>')+'</div></div>';
+  '<button class="w14" data-a="new">New world</button><button class="w10" disabled>Keep it</button>')+'<button class="w12" data-a="full">'+(document.fullscreenElement?'Windowed':'Fullscreen')+'</button>'+'</div></div>';
  // every material the plot could hold has room, so the box never cuts anything off
  h+='<div class="box" style="height:'+(34+Math.ceil(M.length/2)*34)+'px"><b>Tokens in the plot</b><div class="tgrid">'+(st||'<i>none</i>')+'</div></div>';
  h+='<div class="dim small">Every load and every update starts a new world.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</div>';
@@ -137,6 +137,14 @@ document.addEventListener('touchend',e=>{const n=performance.now();if(n-lastTouc
 document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 for(const ev of['gesturestart','gesturechange','gestureend'])document.addEventListener(ev,e=>e.preventDefault(),{passive:false});
 document.addEventListener('touchmove',e=>{if(e.touches.length>1&&!e.target.closest('#cv'))e.preventDefault();},{passive:false});
+// Fullscreen: Android and desktop browsers can do it on a tap. iPhones cannot for a web page; there the game must be added
+// to the Home Screen, after which it opens without any browser bars.
+function toggleFull(){const d=document,el=d.documentElement;
+ if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d);return;}
+ const go=el.requestFullscreen||el.webkitRequestFullscreen;
+ if(go&&(d.fullscreenEnabled||d.webkitFullscreenEnabled)){const r=go.call(el,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{});}
+ else banner('Fullscreen on iPhone','Share, then Add to Home Screen, then open it from there','');}
+document.addEventListener('fullscreenchange',()=>{lastH='';render();redraw();});
 let press=null,skipClick=0;
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-a]');press=el&&!el.disabled?{a:el.dataset.a,v:el.dataset.v,x:e.clientX,y:e.clientY}:null;if(press)el.classList.add('press');});
 const unpress=()=>document.querySelectorAll('.press').forEach(b=>b.classList.remove('press'));
@@ -152,6 +160,7 @@ function act(a,v){
  if(a==='tab')tab=v;else if(a==='tool'){tool=v;info=null;}else if(a==='sel')G.sel=G.sel===+v?null:+v;
  else if(a==='speed')return setSpeed(+v);
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
+ else if(a==='full')toggleFull();
  else if(a==='home')goHomeView();else if(a==='sound'){if(SND.on&&!(SND.ctx&&SND.ctx.state==='running'))unlock();else sndToggle();}
  else if(a==='turn')turnBy(+v);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;

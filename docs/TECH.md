@@ -87,6 +87,10 @@
 - [gospel] The game refreshes itself when an update is published.
 - [slop] An open page checks every two minutes, and whenever it comes back into view; it saves first, then reloads.
 
+## Fullscreen
+- [gospel] The game can be played fullscreen on mobile.
+- [slop] A Fullscreen button on the Colony tab (next to New world) works on Android and desktop. iPhones do not allow it for web pages: there the button explains to use Share, Add to Home Screen; opened from the Home Screen the game runs with no browser bars (the manifest asks for fullscreen, and the page has the Apple web-app tags).
+
 ## Saves
 - [gospel] Autosave to browser storage.
 - [gospel] Opening the playable link always gives a fresh load with a new game.
