@@ -460,7 +460,14 @@ function draw_(){
  // each tile's floor height, for the wall fade
  if(!floorTex){floorTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,floorTex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);}
  if(!FLR||FLR.length!==W*H)FLR=new Uint8Array(W*H);
- for(let j=0;j<H;j++)for(let i=0;i<W;i++){let m=255;for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const x=i+a,y=j+b;if(x<0||y<0||x>=W||y>=H||G.mask[y*W+x]!==2)continue;const h=G.hgt[y*W+x];if(h<m)m=h;}FLR[j*W+i]=m;}
+ // each column takes the floor of the nearest walkable ground (the lowest, where several are as near), so a thick wall
+ // fades all the way through to clear, not only along its edge
+ {FLR.fill(255);let q=[];for(let v=0;v<W*H;v++)if(G.mask[v]===2){FLR[v]=G.hgt[v];q.push(v);}
+  const seen=new Uint8Array(W*H);for(const v of q)seen[v]=1;
+  while(q.length){const nq=[],best=new Map();for(const v of q){const i=v%W,j=(v/W)|0;
+    for(const [a,b] of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const x=i+a,y=j+b;if(x<0||y<0||x>=W||y>=H)continue;const u=y*W+x;if(seen[u])continue;
+     const o=best.get(u);if(o===undefined){best.set(u,FLR[v]);nq.push(u);}else if(FLR[v]<o)best.set(u,FLR[v]);}}
+   for(const u of nq){seen[u]=1;FLR[u]=best.get(u);}q=nq;}}
  gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,FLR);
  const K=camK(),t=tod(),night=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;
  const common=P=>{gl.useProgram(P.p);gl.uniform3f(P.u.uF,cam.fx,cam.fy,cam.fz);gl.uniform4f(P.u.uK,K.cs,K.sn,K.hh,K.k1);gl.uniform1f(P.u.uK2,K.k2);

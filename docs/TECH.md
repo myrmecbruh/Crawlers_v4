@@ -50,7 +50,7 @@
 - [gospel] High walls fade out between the 2nd and 3rd metre above the floor they face (lowered 1 m from the 3rd–4th on 2026-11-18), as in the first game (no cutaway).
 - [gospel] The fade is smooth, not dithered.
 - [slop] A voxel is 3 ft (0.9144 m), so the fade runs from about 2.2 to 3.3 voxels up. The rock below is drawn solid first; the band is blended over everything after the characters, so anyone behind it shows only as much as the wall has faded.
-- [slop] The floor a wall fades from is the lowest walkable ground beside its column, the same for the whole column, so bumpy faces (glass) fade evenly instead of leaving flecks. Air sealed inside a wall is not drawn.
+- [slop] The floor a wall fades from is the nearest walkable ground to its column (the lowest, if several are as near), the same for the whole column, so thick walls fade through to clear too, and so bumpy faces (glass) fade evenly instead of leaving flecks. Air sealed inside a wall is not drawn.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 2 rows behind the point you are looking at and reaches 75% haze 14 rows further back. Shadows are three-band soft dark ellipses on the ground.
