@@ -449,7 +449,7 @@ function draw_(){
  const r=cv.parentElement.getBoundingClientRect(),dpr=window.devicePixelRatio||1,k=Math.max(1,Math.round(cam.s*dpr));
  const vw=Math.max(1,Math.ceil(r.width*dpr/k)),vh=Math.max(1,Math.ceil(r.height*dpr/k));
  if(cv.width!==vw||cv.height!==vh){cv.width=vw;cv.height=vh;}
- const cssW=vw*k/dpr+'px',cssH=vh*k/dpr+'px';if(cv.style.width!==cssW){cv.style.width=cssW;cv.style.height=cssH;}
+ const cssW=vw*k/dpr+'px',cssH=vh*k/dpr+'px';if(cv.style.width!==cssW||cv.style.height!==cssH){cv.style.width=cssW;cv.style.height=cssH;}
  // and the world is shifted by under a pixel so its grid lands on whole pixels wherever the camera stops
  {const K0=camK(),o=proj(K0,0,0,0);SHIFT[0]=Math.round(o[0]+vw/2)-(o[0]+vw/2);SHIFT[1]=Math.round(o[1]+vh/2)-(o[1]+vh/2);}
  rebuildDirty();
