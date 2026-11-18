@@ -110,6 +110,10 @@ function render(){
  if(h===lastH)return;lastH=h;
  const st=panel.scrollTop;panel.innerHTML=h;panel.scrollTop=st;
 }
+// A gathered plant is hidden while it regrows; an order on its tile clears it, so nothing unseen blocks a tap.
+// Anything still drawn there blocks the order, and the info box says what. [slop]
+const BUILT={hearth:1,bench:1,brazier:1,crop:1};
+function blockAt(x,y){const f=featAt(x,y);if(!f)return null;if(!BUILT[f.k]&&!(f.left>0)){G.feats=G.feats.filter(q=>q!==f);return null;}return f;}
 function tap(p){
  const k=K(p.x,p.y),inner=p.x<PW&&G.hgt[I(p.x,p.y)]>0&&!(p.x===47&&p.y===24)&&(G.mask[I(p.x,p.y)]===2||tool==='dig'||tool==='cancel');
  if(tool==='look'){const c=G.cols.find(c=>c.x===p.x&&c.y===p.y);if(c){G.sel=c.id;tab='colony';}
@@ -118,9 +122,9 @@ function tap(p){
  else if(!inner){info={x:p.x,y:p.y,t:'Orders only work inside the walls.'};}
  else if(tool==='dig'){const z=p.z!=null?p.z:topZ(p.x,p.y)-1,dk=TK(p.x,p.y,z);if(G.digs[dk])delete G.digs[dk];else if(z>=1&&G.vox[VI(p.x,p.y,z)])G.digs[dk]=1;}
  else if(tool==='stock'){if(G.stock[k])delete G.stock[k];else G.stock[k]=1;}
- else if(tool==='field'){G.fields=G.fields||{};if(G.fields[k]){delete G.fields[k];const f=featAt(p.x,p.y);if(f&&f.k==='crop')G.feats=G.feats.filter(q=>q!==f);}else if(G.mask[I(p.x,p.y)]===2&&!featAt(p.x,p.y))G.fields[k]=1;}
+ else if(tool==='field'){G.fields=G.fields||{};if(G.fields[k]){delete G.fields[k];const f=featAt(p.x,p.y);if(f&&f.k==='crop')G.feats=G.feats.filter(q=>q!==f);}else{const f=blockAt(p.x,p.y);if(f)info={x:p.x,y:p.y,t:'Cannot farm here: '+FEAT[f.k].n+' is in the way.'};else G.fields[k]=1;}}
  else if(tool==='cancel'){for(const dk in G.digs)if(dk.startsWith(k+','))delete G.digs[dk];G.sites=G.sites.filter(s=>!(s.x===p.x&&s.y===p.y&&s.kind!=='bill'));}
- else if(!G.sites.some(s=>s.x===p.x&&s.y===p.y)&&!featAt(p.x,p.y)){
+ else if(!G.sites.some(s=>s.x===p.x&&s.y===p.y)&&!blockAt(p.x,p.y)){
   if(tool==='place')G.sites.push({id:G.nid++,kind:'voxel',x:p.x,y:p.y,spec:{fam:'stone'},need:1,have:0,m:0});
   else if(tool==='trap')G.sites.push({id:G.nid++,kind:'trap',x:p.x,y:p.y,spec:{fam:'metal'},need:1,have:0,m:0});
   else if(!G.feats.some(f=>f.k===tool)&&!G.sites.some(s=>s.kind===tool))G.sites.push({id:G.nid++,kind:tool,x:p.x,y:p.y,spec:{fam:tool==='hearth'?'stone':'wood'},need:2,have:0,m:0});

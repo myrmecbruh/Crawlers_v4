@@ -312,11 +312,11 @@ void main(){
  vec3 r=vec3(n.x*uK.x-n.y*uK.y,n.x*uK.y+n.y*uK.x,n.z);
  if((r.x+r.y)*uK.w+r.z*uK2<0.){n=-n;r=-r;}
  ivec2 c=ivec2(floor(vW.xy-n.xy*.03));if(texelFetch(uRev,c,0).r<.5)discard;
- // High walls fade smoothly out between 3 and 4 metres above the floor they face (a voxel is 3 ft, 0.9144 m). The floor
+ // High walls fade smoothly out between 2 and 3 metres above the floor they face (a voxel is 3 ft, 0.9144 m). The floor
  // is the ground of the tile the face looks onto. Drawn in two passes: solid rock, then the fading band blended over it.
  float fa_=0.;{ivec2 fc=ivec2(floor(vW.xy+n.xy*.5));float fl=texelFetch(uFloor,fc,0).r*255.,above=(vW.z-fl)*.9144;
-  fa_=clamp(above-3.,0.,1.);
-  if(uPass==0&&fa_>0.)discard;            // first pass: solid rock below 3 m
+  fa_=clamp(above-2.,0.,1.);
+  if(uPass==0&&fa_>0.)discard;            // first pass: solid rock below 2 m
   if(uPass==1&&(fa_<=0.||fa_>=1.))discard;}// second pass: only the band, blended
  float wz=pow(max(r.z,0.),2.),wu=pow(max(r.x,0.),2.),wv=pow(max(r.y,0.),2.),sm=wz+wu+wv;
  float s=sm>1e-4?(1.12*wz+.58*wu+.8*wv)/sm:.5;
@@ -440,9 +440,7 @@ function draw_(){
  // terrain
  common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
  gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);gl.uniform1i(TP.u.uPass,0);for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
- gl.uniform1i(TP.u.uPass,1);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
- for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
- gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
+ gl.disable(gl.CULL_FACE);
  // gather sprites and markers
  const st=[],dy=[],ov=[],gh=[],dc=[],shd=[];resetAtlas(DYN);SHL=shd;
  const al=G.speed>0&&G._tickAt?Math.min(1,(performance.now()-G._tickAt)*G.speed/1000):1;
@@ -490,6 +488,12 @@ function draw_(){
   gl.bindVertexArray(SB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,SB.vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,arr.length/8);};
  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);sprites(ATL,shd,0,.3,2);gl.depthMask(true);gl.disable(gl.BLEND);
  sprites(ATL,st,0,.3);sprites(DYN,dy,0,.3);
+ // the fading band of high walls goes last, so whatever stands behind it is seen through it, not drawn over it
+ common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
+ gl.uniform1i(TP.u.uPass,1);gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+ for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
+ gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
+ common(SP);gl.uniform1i(SP.u.uT,0);gl.activeTexture(gl.TEXTURE0);
  // colonists hidden behind rock show through it as a pale outline, so they are never lost
  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthFunc(gl.GREATER);gl.depthMask(false);sprites(DYN,gh,.35,.3,1);
  gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);

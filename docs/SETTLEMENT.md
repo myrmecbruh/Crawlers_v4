@@ -12,6 +12,7 @@
 - [gospel] Spoilage: food tokens rot after some days unless stored cold, salted or smoked.
 
 - [slop] Fields: the Field tool marks ground tiles; a colonist sows a tuber on each; the crop ripens in a day and a half, gives 3 tubers and grows back, except in winter.
+- [slop] A gathered plant is hidden while it regrows; any order placed on its tile clears it. A plant or building still standing blocks the order and the info box says what is in the way.
 - [slop] Spoilage: meat rots in 3 days, meals in 4, moss in 5, tubers in 8. Nothing rots in winter (cold). Food lying under rock, in a cellar you dig, rots at half speed.
 
 ## Stations
