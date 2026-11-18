@@ -1,0 +1,8 @@
+id,n,kind,t,pips
+still,Still air,blank,Nothing stirs.,
+cold,Cold snap,bane,Everyone chills one step faster.,3
+vermin,Vermin,bane,One food token rots at dawn.,3
+seam,Good seam,boon,First mining roll of the day gains a die.,3
+dry,Dry wood,boon,Fuel burns half again as long.,3
+wander,Wanderer,arrival,A stranger comes to the gate.,1
+chart,Chart,boon,A party sent today sees the whole zone.,2

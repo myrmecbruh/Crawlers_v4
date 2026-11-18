@@ -15,6 +15,8 @@
 - [slop] Relationships and stress breaks.
 
 ## Prototype status (slice 1)
+What has changed build by build is in CHANGELOG.md; the game's data tables are in sheets/. The paragraphs below were written early and are partly out of date (relationships, personalities, spoilage, farming and raids are now in).
+
 In: seeded 48 x 48 walled plot, iso voxel drawing, 3 colonists (Squatters scenario), needs (hunger, rest, cold, stress, wounds), visible tokens and stockpile tiles, dig and place voxels, hearth and workbench, crafting of all draft items, d6 pools with visible dice, fail-forward marks, one gate with a generated zone that is forgotten on return, six party goals (bring ore, map the zone, kill the nest, rescue, reclaim tiles, find a card), recall bell, husk-rats, wounds, downed, rescue, scars, death, a 6-card deck with one draw per dawn, seasons, autosave, PWA shell.
 
 Not in yet: relationships and personality keywords, spoilage, farming, blight border, depths border, devices, shrine, the other two scenarios, placing voxels anywhere but a tile's top.

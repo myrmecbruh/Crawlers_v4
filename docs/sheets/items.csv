@@ -1,0 +1,14 @@
+id,n,tool,cost,fam,wpn,shield,slot,pack
+pick,Pick,1,2,"[""metal"",""stone"",""bone""]",,,,
+axe,Axe,1,2,"[""metal"",""stone""]",,,,
+knife,Knife,1,1,"[""metal"",""stone"",""bone""]",,,,
+club,Club,,1,"[""wood"",""bone""]",Haft,,,
+blade,Blade,,2,"[""metal""]",Blade,,,
+shield,Shield,,2,"[""wood""]",,1,,
+cap,Cap,,1,"[""hide"",""metal"",""fiber""]",,,0,
+jerkin,Jerkin,,2,"[""hide"",""fiber"",""metal""]",,,1,
+leggings,Leggings,,2,"[""hide"",""fiber""]",,,2,
+boots,Boots,,1,"[""hide""]",,,3,
+gloves,Gloves,,1,"[""hide"",""fiber""]",,,4,
+cloak,Cloak,,2,"[""fiber"",""hide""]",,,5,
+pack,Pack,,2,"[""fiber"",""hide""]",,,5,3

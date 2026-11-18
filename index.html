@@ -22,7 +22,8 @@
 .ban.bad b{border-color:var(--bad);color:var(--bad)}.ban.good b{border-color:var(--good);color:var(--good)}
 #thr{height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-shadow:0 1px 2px #000;pointer-events:none;font-size:16px}
 #thr .t{display:inline-block;width:8px;height:8px;margin-right:2px;border:1px solid #6a3030;background:#1a0e0e;vertical-align:middle}#thr .t.f{background:#e04040;border-color:#ff8080}
-#fps{display:inline-block;width:17ch;margin-left:10px;color:#b8b4a8;font-variant-numeric:tabular-nums}
+#fps{display:inline-block;width:15ch;overflow:hidden;vertical-align:top;margin-left:6px;color:#b8b4a8;font-variant-numeric:tabular-nums}
+#ver{display:inline-block;width:10ch;color:#7a776e;font-variant-numeric:tabular-nums} /* the build, so a report can say which one it was */
 #date{height:20px;line-height:20px;font-size:16px;margin-top:4px;white-space:nowrap;overflow:hidden;text-shadow:0 1px 2px #000;pointer-events:none}
 #ui{display:flex;flex-direction:column;background:var(--pn);border-left:1px solid var(--ln)}
 @media (orientation:portrait){#ui{border-left:0;border-top:1px solid var(--ln)}}
@@ -73,7 +74,7 @@ button.press{background:#2e2c22;border-color:var(--ac)}
  <div id="view"><canvas id="cv"></canvas>
   <div id="top"><div id="bar">
    <span id="spd"><button data-a="speed" data-v="0">❚❚</button><button data-a="speed" data-v="1">1×</button><button data-a="speed" data-v="4">4×</button><button data-a="speed" data-v="16">16×</button></span>
-   <span><button data-a="zoom" data-v="-1" title="Zoom out">−</button><button data-a="zoom" data-v="1" title="Zoom in">+</button><button data-a="turn" data-v="-1" title="Quarter turn left (Q); or drag with two fingers, the right button or shift">⟲</button><button data-a="turn" data-v="1" title="Quarter turn right (E)">⟳</button><button id="tilt" data-a="tilt" title="Raised view (R)">⤒</button><button data-a="home" title="Back to camp">⌂</button><button id="snd" data-a="sound" title="Sound and music on or off">♪</button></span></div><div id="date"><span id="dtxt"></span><span id="fps"></span></div><div id="thr"></div></div>
+   <span><button data-a="zoom" data-v="-1" title="Zoom out">−</button><button data-a="zoom" data-v="1" title="Zoom in">+</button><button data-a="turn" data-v="-1" title="Quarter turn left (Q); or drag with two fingers, the right button or shift">⟲</button><button data-a="turn" data-v="1" title="Quarter turn right (E)">⟳</button><button id="tilt" data-a="tilt" title="Raised view (R)">⤒</button><button data-a="home" title="Back to camp">⌂</button><button id="snd" data-a="sound" title="Sound and music on or off">♪</button></span></div><div id="date"><span id="dtxt"></span><span id="fps"></span><span id="ver"></span></div><div id="thr"></div></div>
   <div id="banner" class="ban"></div>
  </div>
  <div id="ui">

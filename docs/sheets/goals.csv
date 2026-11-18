@@ -1,0 +1,7 @@
+id,n,t,feats,loot
+ore,Bring ore,"Mine, and carry home what hands and packs can hold.","[""vein"",""scrap"",""glass"",""cache""]","{""any"":1}"
+map,Map the zone,Walk all of it. A full map comes home as a Chart card.,[],
+nest,Kill the nest,Hunt every creature and break the nest. It breeds while it stands.,"[""nest""]","{""any"":1}"
+rescue,Rescue,Find the caged figure and carry them home to join you.,"[""cage""]",
+reclaim,Reclaim tiles,Carry wood out and light braziers. Lit ground is not forgotten. A brazier burns 6 days.,[],
+card,Find a card,Find the sealed cache and bring back what is in it.,"[""cache""]","{""card"":1}"

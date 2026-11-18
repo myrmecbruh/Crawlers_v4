@@ -1,0 +1,16 @@
+id,n,m,tr,d,tool,uses,dur,grow,sk,card,cage
+tree,Dead tree,4,0,1,axe,2,8,,,,
+moss,Grey moss,14,1,1,knife,1,5,1,,,
+tuber,Tuber patch,15,1,1,knife,1,5,1,,,
+reed,Reeds,9,1,1,knife,2,5,1,,,
+scrap,Scrap heap,6,0,1,pick,3,8,,,,
+vein,Iron vein,7,0,2,pick,3,10,,,,
+glass,Slag-glass spur,3,0,2,pick,2,10,,,,
+cache,Sealed cache,17,4,1,,1,10,,Relic,1,
+nest,Rat nest,13,0,2,,2,10,,Flesh,,
+cage,Caged figure,6,1,1,,1,10,,Metal,,1
+crop,Tuber crop,15,1,1,knife,3,5,1,,,
+hearth,Hearth,,,,,,,,,,
+bench,Workbench,,,,,,,,,,
+brazier,Brazier,,,,,,,,,,
+trap,Trap,,,,,,,,,,

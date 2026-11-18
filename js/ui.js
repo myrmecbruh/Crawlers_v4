@@ -205,6 +205,7 @@ function checkUpdate(){if(!window.VERSION)return;fetch('version.txt?'+Date.now()
  if(t&&t!==window.VERSION){save();location.replace(location.pathname+'?v='+encodeURIComponent(t));}}).catch(()=>{});}
 setInterval(checkUpdate,120000);
 // The world is only drawn when something changes, so an idle game shows 0 fps.
+if(window.VERSION)$('ver').textContent='v'+window.VERSION.slice(4,8)+'.'+window.VERSION.slice(9,13); // 20261118-172216 shows as v1118.1722
 setInterval(()=>{$('fps').textContent=FPS.n+' fps'+(FPS.n?' · '+(FPS.ms/FPS.n).toFixed(1)+' ms':'');FPS.n=0;FPS.ms=0;},1000);
 // Every load starts a new world: opening the link, refreshing, and the automatic reload after an update.
 if(document.fonts&&document.fonts.load)document.fonts.load("8px 'Tiny5'").then(()=>{ATL.map.clear();redraw();}).catch(()=>{});
