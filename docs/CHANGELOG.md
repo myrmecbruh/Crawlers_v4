@@ -4,6 +4,7 @@ What changed in each published build, newest first. Play: https://myrmecbruh.git
 
 ## 2026-11-18
 
+- WASD camera; close slits at wall height steps; smooth fade floor between columns
 - Version beside the fps; changelog and data spreadsheets in docs
 - Thick walls fade through to clear at the top
 - Resize the map's height when only the height changes (fullscreen)

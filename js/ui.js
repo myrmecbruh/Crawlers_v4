@@ -198,6 +198,12 @@ cv.addEventListener('wheel',e=>{e.preventDefault();cam.s=Math.max(1,Math.min(4,c
 window.addEventListener('resize',fit);
 // the view's box can change without a window resize (entering fullscreen, the browser's bars hiding): redraw at its new size
 if(window.ResizeObserver)new ResizeObserver(()=>fit()).observe(document.getElementById('view'));
+// WASD (or the arrow keys) slide the view while held, at a steady screen speed whatever the zoom.
+const PANK={KeyW:[0,1],KeyS:[0,-1],KeyA:[1,0],KeyD:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1],ArrowLeft:[1,0],ArrowRight:[-1,0]},panHeld=new Set();let panT=0;
+function panLoop(t){if(!panHeld.size){panT=0;return;}const dt=panT?Math.min(.05,(t-panT)/1000):0;panT=t;let x=0,y=0;for(const c of panHeld){x+=PANK[c][0];y+=PANK[c][1];}
+ const v=360/pxs()*dt;if(x||y)panBy([cam.fx,cam.fy],x*v,y*v);requestAnimationFrame(panLoop);}
+document.addEventListener('keydown',e=>{if(!PANK[e.code]||e.ctrlKey||e.metaKey||e.altKey)return;e.preventDefault();if(!panHeld.size)requestAnimationFrame(panLoop);panHeld.add(e.code);});
+document.addEventListener('keyup',e=>panHeld.delete(e.code));window.addEventListener('blur',()=>panHeld.clear());
 document.addEventListener('keydown',e=>{if(e.code==='KeyQ')turnBy(-1);else if(e.code==='KeyE')turnBy(1);else if(e.code==='KeyR')tiltTo(tiltGoal()?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();clearInterval(timer);timer=null;}else{checkUpdate();if(G.speed>0&&!timer)setSpeed(G.speed);}});
 // When a newer version has been published, save and reload onto it. Checked every two minutes and whenever the page is shown again.

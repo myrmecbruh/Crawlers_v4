@@ -149,17 +149,21 @@ function buildChunk(cx,cy){
  // a face for every sample edge, owned by this chunk, where rock meets air
  // the voxel holding the air sample of a face must be walkable air, or the face is not drawn
  // every face is wound so that, seen from the air side, it turns anticlockwise; faces seen from behind are then culled
- // A triangle the shape push has folded over faces the wrong way: seen from behind it would show as a fleck. Its turn
- // (by winding) is checked against the surface's outward direction at its corners, and a folded one is left out.
+ // A triangle the shape push has folded over faces the wrong way, so it would be culled and leave a crack. Its turn (by
+ // winding) is checked against the surface's outward direction at its corners, and a folded one is turned back to face out.
  const tri=(a,b,c)=>{const A=a*5,B=b*5,C=c*5,ux=vd[B]-vd[A],uy=vd[B+1]-vd[A+1],uz=vd[B+2]-vd[A+2],wx=vd[C]-vd[A],wy=vd[C+1]-vd[A+1],wz=vd[C+2]-vd[A+2];
   const gx=uy*wz-uz*wy,gy=uz*wx-ux*wz,gz=ux*wy-uy*wx,ox=vn[a*3]+vn[b*3]+vn[c*3],oy=vn[a*3+1]+vn[b*3+1]+vn[c*3+1],oz=vn[a*3+2]+vn[b*3+2]+vn[c*3+2];
-  if((gx*ox+gy*oy+gz*oz)*WSIGN>0)idx.push(a,b,c);};
+  if((gx*ox+gy*oy+gz*oz)*WSIGN>0)idx.push(a,b,c);else idx.push(a,c,b);};
  const quadOut=(a,b,c,d,keep)=>{if(keep){tri(a,b,c);tri(a,c,d);}else{tri(a,c,b);tri(a,d,c);}};
  const airOK=(ix,iy,iz)=>walkAir(Math.floor((sx0+ix+.5)/RES),Math.floor((sy0+iy+.5)/RES),Math.floor((sz0+iz+.5)/RES));
+ // A side face may also look onto the air over a lower wall: that is the step between two wall heights, and leaving it
+ // out opens a slit through the wall. Tops of walls are still left out, so near walls stay hidden.
+ const sideOK=(ix,iy,iz)=>{const i=Math.floor((sx0+ix+.5)/RES),j=Math.floor((sy0+iy+.5)/RES),k=Math.floor((sz0+iz+.5)/RES);
+  if(walkAir(i,j,k))return true;return i>=0&&j>=0&&i<W&&j<H&&G.mask[j*W+i]===1&&k>=G.hgt[j*W+i];};
  for(let iz=1;iz<nz-1;iz++)for(let iy=PADS;iy<PADS+CH*RES;iy++)for(let ix=PADS;ix<PADS+CH*RES;ix++){
   const s=F[at(ix,iy,iz)]>T;
-  if(s!==(F[at(ix+1,iy,iz)]>T)&&(s?airOK(ix+1,iy,iz):airOK(ix,iy,iz))){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);quadOut(a,b,c,d,s);}
-  if(s!==(F[at(ix,iy+1,iz)]>T)&&(s?airOK(ix,iy+1,iz):airOK(ix,iy,iz))){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,!s);}
+  if(s!==(F[at(ix+1,iy,iz)]>T)&&(s?sideOK(ix+1,iy,iz):sideOK(ix,iy,iz))){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);quadOut(a,b,c,d,s);}
+  if(s!==(F[at(ix,iy+1,iz)]>T)&&(s?sideOK(ix,iy+1,iz):sideOK(ix,iy,iz))){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,!s);}
   if(s!==(F[at(ix,iy,iz+1)]>T)&&(s?airOK(ix,iy,iz+1):airOK(ix,iy,iz))){const a=cellVert(ix-1,iy-1,iz),b=cellVert(ix,iy-1,iz),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,s);}}
  PC=null;
  return{v:new Float32Array(vd),i:new Uint32Array(idx)};
@@ -339,8 +343,8 @@ void main(){
  if((r.x+r.y)*uK.w+r.z*uK2<0.){n=-n;r=-r;}
  ivec2 c=ivec2(floor(vW.xy-n.xy*.03));if(texelFetch(uRev,c,0).r<.5)discard;
  // High walls fade smoothly out between 2 and 3 metres above the floor they face (a voxel is 3 ft, 0.9144 m). The floor
- // is the lowest walkable ground beside the column the rock is in, the same for the whole column, so bumpy faces fade evenly. Drawn in two passes: solid rock, then the fading band blended over it.
- float fa_=0.;{ivec2 fc=c;float fl=texelFetch(uFloor,fc,0).r*255.,above=(vW.z-fl)*.9144;
+ // is the lowest walkable ground beside the column the rock is in, blended smoothly between columns, so bumpy faces fade evenly with no seams. Drawn in two passes: solid rock, then the fading band blended over it.
+ float fa_=0.;{vec2 ts=vec2(textureSize(uFloor,0));float fl=texture(uFloor,vW.xy/ts).r*255.,above=(vW.z-fl)*.9144;
   fa_=clamp(above-2.,0.,1.);
   if(uPass==0&&fa_>0.)discard;            // first pass: solid rock below 2 m
   if(uPass==1&&(fa_<=0.||fa_>=1.))discard;}// second pass: only the band, blended
@@ -458,7 +462,7 @@ function draw_(){
  const rev=new Uint8Array(W*H);for(let i=0;i<W*H;i++)rev[i]=(i%W)<PW||G.rev[i]?255:0;
  gl.bindTexture(gl.TEXTURE_2D,revTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,rev);
  // each tile's floor height, for the wall fade
- if(!floorTex){floorTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,floorTex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);}
+ if(!floorTex){floorTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,floorTex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.LINEAR);for(const p of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);}
  if(!FLR||FLR.length!==W*H)FLR=new Uint8Array(W*H);
  // each column takes the floor of the nearest walkable ground (the lowest, where several are as near), so a thick wall
  // fades all the way through to clear, not only along its edge
