@@ -101,7 +101,7 @@ function render(){
  $('thr').innerHTML='Threat '+Array.from({length:THREAT_MAX},(_,i)=>'<span class="t'+(i<Math.floor(G.threat||0)?' f':'')+'"></span>').join('')+' '+(G.raid?'<b style="color:#e04040">RAID</b>':Math.floor(G.threat||0)+'/'+THREAT_MAX)+' · renown '+(G.renown||0);
  $('snd').classList.toggle('on',SND.on&&!!SND.ctx&&SND.ctx.state==='running');$('snd').classList.toggle('wait',SND.on&&!(SND.ctx&&SND.ctx.state==='running'));
  $('dtxt').textContent=SEASON[season()]+' '+(day()%6+1)+', year '+(Math.floor(day()/24)+1)+' · '+(night()?'night':tod()<60?'morning':tod()<120?'midday':'evening');
- $('tilt').classList.toggle('on',!!cam.tilt);
+ $('tilt').classList.toggle('on',!!tiltGoal());
  document.querySelectorAll('#spd button').forEach(b=>b.classList.toggle('on',+b.dataset.v===G.speed));
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===tab));
  // Never rebuild the panel under a finger or mouse button: a button replaced between press and release gets no click.
@@ -166,7 +166,7 @@ function act(a,v){
  else if(a==='zoom'){cam.s=Math.max(1,Math.min(4,cam.s+ +v));}
  else if(a==='full')toggleFull();
  else if(a==='home')goHomeView();else if(a==='sound'){if(SND.on&&!(SND.ctx&&SND.ctx.state==='running'))unlock();else sndToggle();}
- else if(a==='turn')turnBy(+v);else if(a==='tilt')setView(cam.yaw,cam.tilt?0:1);
+ else if(a==='turn')turnBy(+v);else if(a==='tilt')tiltTo(tiltGoal()?0:1);
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}
  else if(a==='recall')recall();
@@ -196,7 +196,9 @@ const up=e=>{ptrs.delete(e.pointerId);if(drag&&!drag.mv&&e.type==='pointerup'){c
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.s=Math.max(1,Math.min(4,cam.s+(e.deltaY<0?1:-1)));redraw();},{passive:false});
 window.addEventListener('resize',fit);
-document.addEventListener('keydown',e=>{if(e.code==='KeyQ')turnBy(-1);else if(e.code==='KeyE')turnBy(1);else if(e.code==='KeyR')setView(cam.yaw,cam.tilt?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
+// the view's box can change without a window resize (entering fullscreen, the browser's bars hiding): redraw at its new size
+if(window.ResizeObserver)new ResizeObserver(()=>fit()).observe(document.getElementById('view'));
+document.addEventListener('keydown',e=>{if(e.code==='KeyQ')turnBy(-1);else if(e.code==='KeyE')turnBy(1);else if(e.code==='KeyR')tiltTo(tiltGoal()?0:1);else if(e.code==='Space'){e.preventDefault();setSpeed(G.speed?0:1);}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){save();clearInterval(timer);timer=null;}else{checkUpdate();if(G.speed>0&&!timer)setSpeed(G.speed);}});
 // When a newer version has been published, save and reload onto it. Checked every two minutes and whenever the page is shown again.
 function checkUpdate(){if(!window.VERSION)return;fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{t=t.trim();

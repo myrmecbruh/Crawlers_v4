@@ -8,7 +8,9 @@ let ctx=null; // the 2D context the sprite art draws into: one of the sprite atl
 // The camera looks at a focus point. yaw is in quarter turns and can be any value; tilt 0 is the 2:1 view, 1 the raised one.
 // s is how many screen pixels one game pixel takes.
 const cam={fx:24.5,fy:24.5,fz:3,yaw:0,tilt:0,s:2};
-const HH=()=>cam.tilt?14:8; // half the height of a ground tile in pixels: 8 is the 2:1 view, 14 the raised one [slop]
+const HH=()=>8+6*cam.tilt; // half the height of a ground tile in pixels: 8 is the 2:1 view, 14 the raised one [slop]
+// sprites are painted for the nearer of the two views only, so a tilt in motion does not fill the picture cache
+const HHs=()=>cam.tilt<.5?8:14;
 const RGB={},rgbOf=m=>RGB[m]||(RGB[m]=[parseInt(M[m].c.slice(1,3),16),parseInt(M[m].c.slice(3,5),16),parseInt(M[m].c.slice(5,7),16)]);
 function shade(hex,f){const n=parseInt(hex.slice(1),16),c=v=>Math.max(0,Math.min(255,Math.round(v*f)));
  return'rgb('+c(n>>16)+','+c(n>>8&255)+','+c(n&255)+')';}
@@ -28,6 +30,13 @@ function turnBy(q){const from=cam.yaw,goal=(TURN?TURN.goal:Math.round(cam.yaw))+
 function turnStep(){if(!TURN)return;const p=Math.min(1,(performance.now()-TURN.t0)/450),e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
  cam.yaw=TURN.from+(TURN.goal-TURN.from)*e;dirty=true;draw();
  if(p<1)requestAnimationFrame(turnStep);else{cam.yaw=((Math.round(TURN.goal)%4)+4)%4;TURN=null;dirty=true;draw();}}
+// Raising or lowering the view swings the same way as a turn: eased in and out over 0.45 s.
+let TILT=null;
+function tiltTo(g){TILT={from:cam.tilt,goal:g,t0:performance.now()};requestAnimationFrame(tiltStep);}
+function tiltStep(){if(!TILT)return;const p=Math.min(1,(performance.now()-TILT.t0)/450),e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+ cam.tilt=TILT.from+(TILT.goal-TILT.from)*e;dirty=true;draw();
+ if(p<1)requestAnimationFrame(tiltStep);else{cam.tilt=TILT.goal;TILT=null;dirty=true;draw();}}
+const tiltGoal=()=>TILT?TILT.goal:Math.round(cam.tilt);
 function lookAt(x,y){cam.fx=x+.5;cam.fy=y+.5;cam.fz=G.hgt[I(x,y)]||cam.fz;redraw();}
 function panBy(f0,dx,dy){const K=camK(),d=unproj(K,dx,dy);cam.fx=Math.max(1,Math.min(G&&G.zone.on?W-1:PW,f0[0]-d[0]));cam.fy=Math.max(1,Math.min(H-1,f0[1]-d[1]));redraw();}
 
@@ -45,7 +54,19 @@ function vsolid(i,j,k){if(i<0||j<0||i>=W||j>=H||k>=Z)return 0;if(k<0)return G.ma
 // Only rock that faces the air of a walkable place is drawn (the rule from the first game): air over ground tiles, and air
 // hollowed inside rock (tunnels). The outer faces of walls and the tops of walls and outcrops face nothing anyone walks in,
 // so they are left out, and a near-side wall no longer hides what is behind it.
-function walkAir(i,j,k){if(i<0||j<0||i>=W||j>=H||k<0)return false;const m=G.mask[j*W+i];if(m===2)return true;return m===1&&k<G.hgt[j*W+i];}
+function walkAir(i,j,k){if(i<0||j<0||i>=W||j>=H||k<0)return false;const m=G.mask[j*W+i];if(m===2)return true;return m===1&&k<G.hgt[j*W+i]&&k<Z&&AIRO&&AIRO[(k*H+j)*W+i]===1;}
+// Air inside a wall counts as walkable only where it opens onto the ground (a dug tunnel). A sealed pocket stays out of
+// the mesh: drawn, its inside would float into view where the top of the wall fades.
+let AIRO=null;
+function openAir(){const n=W*H*Z,A=new Uint8Array(n),q=[];
+ const inw=(i,j,k)=>i>=0&&j>=0&&i<W&&j<H&&k>=0&&k<Z&&G.mask[j*W+i]===1&&k<G.hgt[j*W+i]&&!G.vox[(k*H+j)*W+i];
+ for(let j=0;j<H;j++)for(let i=0;i<W;i++){if(G.mask[j*W+i]!==2)continue;
+  for(const [a,b] of[[1,0],[-1,0],[0,1],[0,-1]]){const x=i+a,y=j+b;for(let k=0;k<Z;k++)if(!G.vox[(k*H+j)*W+i]&&inw(x,y,k)){const v=(k*H+y)*W+x;if(!A[v]){A[v]=1;q.push(v);}}}}
+ while(q.length){const v=q.pop(),k=(v/(W*H))|0,j=((v%(W*H))/W)|0,i=v%W;
+  for(const [a,b,c] of[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])if(inw(i+a,j+b,k+c)){const u=((k+c)*H+j+b)*W+i+a;if(!A[u]){A[u]=1;q.push(u);}}}
+ // a chunk whose open air changed is rebuilt, even when the dig that opened it was elsewhere
+ if(AIRO)for(let v=0;v<n;v++)if(A[v]!==AIRO[v]){const i=v%W,j=((v%(W*H))/W)|0;touch(i,j);}
+ AIRO=A;}
 // ---- Voxel variety. Every voxel has a variant (0-3) and a turn (0-3 quarter turns about the vertical), picked from a
 // hash of its position. The variant sets how far each exposed face bulges out or sinks in, whether one exposed top corner
 // is chipped off, and, turned by the turn, the pattern its surface is pushed into. Faces against another voxel never move,
@@ -111,7 +132,7 @@ function buildChunk(cx,cy){
  const tri3=(x,y,z)=>{const X=Math.max(0,Math.min(nx-1.001,x*RES-.5-sx0)),Y=Math.max(0,Math.min(ny-1.001,y*RES-.5-sy0)),Q=Math.max(0,Math.min(nz-1.001,z*RES-.5-sz0));
   const xi=X|0,yi=Y|0,zi=Q|0,fx=X-xi,fy=Y-yi,fz=Q-zi;let r=0;
   for(let c=0;c<8;c++){const a=c&1,b=c>>1&1,d=c>>2;r+=F[at(xi+a,yi+b,zi+d)]*(a?fx:1-fx)*(b?fy:1-fy)*(d?fz:1-fz);}return r;};
- const VI_=new Int32Array(nx*ny*nz).fill(-1),vd=[],idx=[],o=[0,0,0];
+ const VI_=new Int32Array(nx*ny*nz).fill(-1),vd=[],vn=[],idx=[],o=[0,0,0];
  const cellVert=(cx_,cy_,cz_)=>{const q=at(cx_,cy_,cz_);if(VI_[q]>=0)return VI_[q];
   const v=[];for(let c=0;c<8;c++)v.push(F[at(cx_+(c&1),cy_+(c>>1&1),cz_+(c>>2))]);
   let px=0,py=0,pz=0,n=0;
@@ -124,11 +145,16 @@ function buildChunk(cx,cy){
   const m=fieldAt(x-nx_*.08,y-ny_*.08,z-nz_*.08,true)||fieldAt(x,y,z,true)||1;
   const ao=1-.5*Math.min(1,1.5*Math.min(1,tri3(x+nx_*.3,y+ny_*.3,z+nz_*.3))+.8*Math.min(1,tri3(x+nx_*.6,y+ny_*.6,z+nz_*.6)));
   pushAt(x,y,z,o);x+=o[0];y+=o[1];z+=o[2];
-  vd.push(x,y,z,m,ao);return VI_[q]=vd.length/5-1;};
+  vd.push(x,y,z,m,ao);vn.push(nx_,ny_,nz_);return VI_[q]=vd.length/5-1;};
  // a face for every sample edge, owned by this chunk, where rock meets air
  // the voxel holding the air sample of a face must be walkable air, or the face is not drawn
  // every face is wound so that, seen from the air side, it turns anticlockwise; faces seen from behind are then culled
- const quadOut=(a,b,c,d,keep)=>{if(keep)idx.push(a,b,c,a,c,d);else idx.push(a,c,b,a,d,c);};
+ // A triangle the shape push has folded over faces the wrong way: seen from behind it would show as a fleck. Its turn
+ // (by winding) is checked against the surface's outward direction at its corners, and a folded one is left out.
+ const tri=(a,b,c)=>{const A=a*5,B=b*5,C=c*5,ux=vd[B]-vd[A],uy=vd[B+1]-vd[A+1],uz=vd[B+2]-vd[A+2],wx=vd[C]-vd[A],wy=vd[C+1]-vd[A+1],wz=vd[C+2]-vd[A+2];
+  const gx=uy*wz-uz*wy,gy=uz*wx-ux*wz,gz=ux*wy-uy*wx,ox=vn[a*3]+vn[b*3]+vn[c*3],oy=vn[a*3+1]+vn[b*3+1]+vn[c*3+1],oz=vn[a*3+2]+vn[b*3+2]+vn[c*3+2];
+  if((gx*ox+gy*oy+gz*oz)*WSIGN>0)idx.push(a,b,c);};
+ const quadOut=(a,b,c,d,keep)=>{if(keep){tri(a,b,c);tri(a,c,d);}else{tri(a,c,b);tri(a,d,c);}};
  const airOK=(ix,iy,iz)=>walkAir(Math.floor((sx0+ix+.5)/RES),Math.floor((sy0+iy+.5)/RES),Math.floor((sz0+iz+.5)/RES));
  for(let iz=1;iz<nz-1;iz++)for(let iy=PADS;iy<PADS+CH*RES;iy++)for(let ix=PADS;ix<PADS+CH*RES;ix++){
   const s=F[at(ix,iy,iz)]>T;
@@ -143,14 +169,14 @@ function buildChunk(cx,cy){
 const SHAD={};
 // While a sprite is painted, its shadows are noted rather than drawn (SHQ), and drawn on the ground with soft edges.
 let SHQ=null;
-function shadow(x,y,rx){if(SHQ){SHQ.push([x,y,rx]);return;}const hh=HH(),k=hh+'|'+rx;let c=SHAD[k];
+function shadow(x,y,rx){if(SHQ){SHQ.push([x,y,rx]);return;}const hh=HHs(),k=hh+'|'+rx;let c=SHAD[k];
  if(!c){const ry=Math.max(2,Math.round(rx*hh/16));c=SHAD[k]=document.createElement('canvas');c.width=rx*2+1;c.height=ry*2+1;const g=c.getContext('2d');
   for(let py=0;py<=ry*2;py++)for(let px=0;px<=rx*2;px++){const t=Math.hypot((px-rx)/rx,(py-ry)/ry),al=t<.5?.36:t<.78?.2:t<=1?.09:0;
    if(al){g.fillStyle='rgba(6,6,14,'+al+')';g.fillRect(px,py,1,1);}}}
  ctx.drawImage(c,Math.round(x)-(c.width>>1),Math.round(y)-(c.height>>1));}
 
 const rc=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x,y,w,h);};
-function diamond(sx,ty,c,fill){const hh=HH();ctx.beginPath();ctx.moveTo(sx,ty+1);ctx.lineTo(sx+15,ty+hh);ctx.lineTo(sx,ty+hh*2-1);ctx.lineTo(sx-15,ty+hh);ctx.closePath();
+function diamond(sx,ty,c,fill){const hh=HHs();ctx.beginPath();ctx.moveTo(sx,ty+1);ctx.lineTo(sx+15,ty+hh);ctx.lineTo(sx,ty+hh*2-1);ctx.lineTo(sx-15,ty+hh);ctx.closePath();
  if(fill){ctx.fillStyle=c;ctx.fill();}else{ctx.strokeStyle=c;ctx.lineWidth=1;ctx.stroke();}}
 const PIP=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 function dieSpr(x,y,v,hit){rc(x,y,7,7,hit?'#f0c040':'#d8d4c8');for(const p of PIP[v])rc(x+1+(p%3)*2,y+1+Math.floor(p/3)*2,1,1,'#1a1a1a');}
@@ -313,8 +339,8 @@ void main(){
  if((r.x+r.y)*uK.w+r.z*uK2<0.){n=-n;r=-r;}
  ivec2 c=ivec2(floor(vW.xy-n.xy*.03));if(texelFetch(uRev,c,0).r<.5)discard;
  // High walls fade smoothly out between 2 and 3 metres above the floor they face (a voxel is 3 ft, 0.9144 m). The floor
- // is the ground of the tile the face looks onto. Drawn in two passes: solid rock, then the fading band blended over it.
- float fa_=0.;{ivec2 fc=ivec2(floor(vW.xy+n.xy*.5));float fl=texelFetch(uFloor,fc,0).r*255.,above=(vW.z-fl)*.9144;
+ // is the lowest walkable ground beside the column the rock is in, the same for the whole column, so bumpy faces fade evenly. Drawn in two passes: solid rock, then the fading band blended over it.
+ float fa_=0.;{ivec2 fc=c;float fl=texelFetch(uFloor,fc,0).r*255.,above=(vW.z-fl)*.9144;
   fa_=clamp(above-2.,0.,1.);
   if(uPass==0&&fa_>0.)discard;            // first pass: solid rock below 2 m
   if(uPass==1&&(fa_<=0.||fa_>=1.))discard;}// second pass: only the band, blended
@@ -373,7 +399,7 @@ function uploadChunk(k,m){const C=CHUNKS[k];C.n=m.i.length;gl.bindVertexArray(C.
  for(const [l,n,o] of[[0,3,0],[1,1,12],[2,1,16]]){gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,20,o);}
  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,C.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,m.i,gl.STATIC_DRAW);gl.bindVertexArray(null);}
 // chunks marked by world.js when their voxels change
-function rebuildDirty(){for(const k of DIRTY){if(k<0||k>=NCX*NCY)continue;uploadChunk(k,buildChunk(k%NCX,(k/NCX)|0));}DIRTY.clear();}
+function rebuildDirty(){if(DIRTY.size||!AIRO)openAir();for(const k of DIRTY){if(k<0||k>=NCX*NCY)continue;uploadChunk(k,buildChunk(k%NCX,(k/NCX)|0));}DIRTY.clear();}
 
 // ---- Sprite atlases. Features and token stacks change rarely, so their pictures are kept (ATL); characters, rats, dice
 // and markers are drawn fresh each frame (DYN).
@@ -390,7 +416,7 @@ function stat(key,w,h,ax,ay,fn){let e=ATL.map.get(key);if(!e){e=paint(ATL,w,h,ax
 function quad(out,e,x,y,z,off,offy){const x0=-e.ax+(off||0),y0=-e.ay+(offy||0),x1=x0+e.w,y1=y0+e.h;
  for(const [ox,oy,u,v] of[[x0,y0,e.x,e.y],[x1,y0,e.x+e.w,e.y],[x0,y1,e.x,e.y+e.h],[x1,y0,e.x+e.w,e.y],[x1,y1,e.x+e.w,e.y+e.h],[x0,y1,e.x,e.y+e.h]])
   out.push(x,y,z,ox,oy,u,v,-oy);
- if(e.sh&&SHL)for(const q of e.sh){const r=Math.round(q[2]),se=stat('sh'+HH()+'|'+r,r*2+3,r*2+3,r+1,r+1,(ax,ay)=>{SHQ=null;shadow(ax,ay,r);SHQ=[];});
+ if(e.sh&&SHL)for(const q of e.sh){const r=Math.round(q[2]),se=stat('sh'+HHs()+'|'+r,r*2+3,r*2+3,r+1,r+1,(ax,ay)=>{SHQ=null;shadow(ax,ay,r);SHQ=[];});
   quad(SHL,se,x,y,z,(off||0)+Math.round(q[0]),Math.round(q[1]));}}
 let SHL=null; // where shadow quads go while a frame is gathered
 // a flat marker on a tile: outline, or fill when a is negative
@@ -405,7 +431,9 @@ function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#
 const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
 const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
 let PAL=null;
-const SHIFT=[0,0];let FRONT=0x0900; // gl.CW: the projection flips handedness (screen y runs down), so outward faces turn clockwise on screen
+const SHIFT=[0,0],WSIGN=1;let FLR=null;
+// a voxel whose middle is past half of the wall fade is mostly see-through, so taps pass through it to what lies behind
+const faded=(i,j,k)=>!!FLR&&((k+.5-FLR[j*W+i])*.9144-2)>.5;let FRONT=0x0900; // gl.CW: the projection flips handedness (screen y runs down), so outward faces turn clockwise on screen
 
 // CSS pixels per game pixel, as actually drawn
 const pxs=()=>Math.max(1,Math.round(cam.s*(window.devicePixelRatio||1)))/(window.devicePixelRatio||1);
@@ -431,7 +459,9 @@ function draw_(){
  gl.bindTexture(gl.TEXTURE_2D,revTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,rev);
  // each tile's floor height, for the wall fade
  if(!floorTex){floorTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,floorTex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);}
- gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,G.hgt);
+ if(!FLR||FLR.length!==W*H)FLR=new Uint8Array(W*H);
+ for(let j=0;j<H;j++)for(let i=0;i<W;i++){let m=255;for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const x=i+a,y=j+b;if(x<0||y<0||x>=W||y>=H||G.mask[y*W+x]!==2)continue;const h=G.hgt[y*W+x];if(h<m)m=h;}FLR[j*W+i]=m;}
+ gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,FLR);
  const K=camK(),t=tod(),night=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;
  const common=P=>{gl.useProgram(P.p);gl.uniform3f(P.u.uF,cam.fx,cam.fy,cam.fz);gl.uniform4f(P.u.uK,K.cs,K.sn,K.hh,K.k1);gl.uniform1f(P.u.uK2,K.k2);
   gl.uniform2f(P.u.uVP,vw,vh);gl.uniform2f(P.u.uSh,SHIFT[0],SHIFT[1]);gl.uniform3f(P.u.uFog,38/255,42/255,54/255);gl.uniform1f(P.u.uNight,night);gl.uniform1f(P.u.uHH,K.hh);};
@@ -453,10 +483,10 @@ function draw_(){
   const e=paint(DYN,q.need*5+2,6,1,1,(ax,ay)=>{for(let n=0;n<q.need;n++)rc(ax+n*5,ay,4,4,n<q.have?'#7fd0ff':'#234');});if(e)quad(dy,e,q.x+.5,q.y+.5,top(q.x,q.y),-(q.need*5)/2+1);}
  for(const k in G.fields||{}){const p=k.split(','),x=+p[0],y=+p[1];decal(dc,x,y,top(x,y),.45,.62,.3,.6);}
  for(const f of G.feats){if(!(f.left>0||f.k==='hearth'||f.k==='bench'||f.k==='brazier'||f.k==='crop')||!seenAt(f.x,f.y))continue;
-  const key='f'+HH()+f.k+(f.m||'')+(f.k==='hearth'&&f.fuel>0?'l':'')+(f.k==='crop'&&f.left>0?'r':'');
+  const key='f'+HHs()+f.k+(f.m||'')+(f.k==='hearth'&&f.fuel>0?'l':'')+(f.k==='crop'&&f.left>0?'r':'');
   const e=stat(key,40,46,20,38,(ax,ay)=>{shadow(ax,ay+1,FSH[f.k]||6);featSpr(f,ax,ay);});quad(st,e,f.x+.5,f.y+.5,f.z!=null?f.z:top(f.x,f.y));}
  for(const k in G.tok){const p=tparse(k),x=p[0],y=p[1],z=p[2],a=G.tok[k];if(!a.length||!seenAt(x,y))continue;const ff=z===top(x,y)&&featAt(x,y)?4:0;
-  const key='t'+HH()+ff+a.map(tkey).join(',');
+  const key='t'+HHs()+ff+a.map(tkey).join(',');
   const e=stat(key,42,34,18,24,(ax,ay)=>{const nc=Math.min(3,a.length);shadow(ax-13+nc*4.5,ay+3+ff,3+nc*4);for(let n=0;n<a.length;n++)tokSpr(a[n],ax-13+(n%3)*9,ay-4-Math.floor(n/3)*8+ff);});
   quad(st,e,x+.5,y+.5,z);}
  if(!G.gateOpen&&!G.gateBroken&&G.gateZ!=null){const e=paint(DYN,18,26,9,24,(ax,ay)=>{rc(ax-8,ay-22,16,24,'#3a2c20');rc(ax-8,ay-12,16,2,'#aab3bd');});if(e)quad(dy,e,47.5,24.5,G.gateZ);}
@@ -507,8 +537,12 @@ function pick(px,py){
  let bc=null,bd=1e9;for(const c of G.cols){if(c.by!=null)continue;const p=proj(K,c.x+.5,c.y+.5,c.z!=null?c.z:G.hgt[I(c.x,c.y)]);
   if(gx>p[0]-8&&gx<p[0]+8&&gy>p[1]-34&&gy<p[1]+3&&-p[2]<bd){bd=-p[2];bc=c;}}
  if(bc)return{x:bc.x,y:bc.y};
- const b=gx/16;for(let dz=Z+2-cam.fz;dz>-1-cam.fz;dz-=1/32){const a=(gy+dz*16)/K.hh,rx=(a+b)/2,ry=(a-b)/2;
+ // Rock is hit only through a face that is drawn: one the ray enters from walkable air on the camera's side. Rock seen
+ // from behind is not drawn and lets the tap through, and so does the faded top of a high wall.
+ const b=gx/16;let pi=null,pj=0,pk=0;for(let dz=Z+2-cam.fz;dz>-1-cam.fz;dz-=1/32){const a=(gy+dz*16)/K.hh,rx=(a+b)/2,ry=(a-b)/2;
   const x=cam.fx+rx*K.cs+ry*K.sn,y=cam.fy-rx*K.sn+ry*K.cs,z=cam.fz+dz,i=Math.floor(x),j=Math.floor(y),k=Math.floor(z);
-  if(i<0||j<0||i>=W||j>=H||k<0||k>=Z)continue;if(!seenAt(i,j))continue;if(G.vox[(k*H+j)*W+i]&&(walkAir(i+1,j,k)||walkAir(i-1,j,k)||walkAir(i,j+1,k)||walkAir(i,j-1,k)||walkAir(i,j,k+1)||walkAir(i,j,k-1)))return{x:i,y:j,z:k};}
+  if(pi!==null&&i===pi&&j===pj&&k===pk)continue;const qi=pi,qj=pj,qk=pk;pi=i;pj=j;pk=k;
+  if(i<0||j<0||i>=W||j>=H||k<0||k>=Z||qi===null)continue;if(!seenAt(i,j)||faded(i,j,k)||!G.vox[(k*H+j)*W+i])continue;
+  if((qi!==i&&walkAir(qi,j,k))||(qj!==j&&walkAir(i,qj,k))||(qk!==k&&walkAir(i,j,qk)))return{x:i,y:j,z:k};}
  return null;
 }

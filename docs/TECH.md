@@ -27,6 +27,8 @@
 - [gospel] The camera orbits freely around the point you look at, at a fixed isometric pitch, with a second, steeper pitch. (Earlier: quarter turns only.)
 - [slop] The steeper pitch draws the ground tile 32 x 28; voxels stay 16 px tall at both. Turn by dragging with two fingers, the right mouse button or shift; the turn buttons and Q and E make a quarter turn; R tilts.
 - [gospel] Quarter turns are animated, easing out of the start and into the stop.
+- [gospel] Raising and lowering the view (tilt) is animated the same way as the quarter turns.
+- [slop] Rock is hit by a tap only through a face that is drawn; rock seen from behind and the faded top of a high wall let the tap through.
 - [slop] A quarter turn takes 0.45 s with a cubic ease in and out; frames are drawn only while it turns.
 - [gospel] Characters stay pixel sprites, with visible gear, skin tones, eyes, hair and beards, standing in the 3D world in correct isometric perspective at the same pixel scale as before.
 - [slop] Every sprite (characters, rats, features, tokens) stands upright at its spot; rock in front of it hides it. Colonists hidden by rock show through as a pale outline.
@@ -48,6 +50,7 @@
 - [gospel] High walls fade out between the 2nd and 3rd metre above the floor they face (lowered 1 m from the 3rd–4th on 2026-11-18), as in the first game (no cutaway).
 - [gospel] The fade is smooth, not dithered.
 - [slop] A voxel is 3 ft (0.9144 m), so the fade runs from about 2.2 to 3.3 voxels up. The rock below is drawn solid first; the band is blended over everything after the characters, so anyone behind it shows only as much as the wall has faded.
+- [slop] The floor a wall fades from is the lowest walkable ground beside its column, the same for the whole column, so bumpy faces (glass) fade evenly instead of leaving flecks. Air sealed inside a wall is not drawn.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 2 rows behind the point you are looking at and reaches 75% haze 14 rows further back. Shadows are three-band soft dark ellipses on the ground.
