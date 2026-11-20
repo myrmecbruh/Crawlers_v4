@@ -184,7 +184,9 @@ let drag=null;
 // One finger or the left button pans. Two fingers twisting, the right button, or shift with the left button turns the view.
 const ptrs=new Map();
 cv.addEventListener('contextmenu',e=>e.preventDefault());
-cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+// A phone can lose a finger's lift (a system gesture, a call). The first finger of a new touch therefore clears every
+// finger left over, or a stale one would turn each later one-finger drag into a two-finger twist.
+cv.addEventListener('pointerdown',e=>{if(e.isPrimary){ptrs.clear();drag=null;}try{cv.setPointerCapture(e.pointerId);}catch(_){}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(ptrs.size===2){const p=[...ptrs.values()];drag={twist:Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x),yaw:cam.yaw,mv:true};return;}
  drag={x:e.clientX,y:e.clientY,f0:[cam.fx,cam.fy],yaw:cam.yaw,rot:e.button===2||e.shiftKey,mv:false};});
 cv.addEventListener('pointermove',e=>{if(!drag||!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -192,7 +194,10 @@ cv.addEventListener('pointermove',e=>{if(!drag||!ptrs.has(e.pointerId))return;pt
  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.mv&&Math.abs(dx)+Math.abs(dy)<8)return;drag.mv=true;
  if(drag.rot)setView(drag.yaw-dx/160,cam.tilt);else panBy(drag.f0,dx/pxs(),dy/pxs());});
 const up=e=>{ptrs.delete(e.pointerId);if(drag&&!drag.mv&&e.type==='pointerup'){const r=cv.getBoundingClientRect(),p=pick(e.clientX-r.left,e.clientY-r.top);if(p)tap(p);}
- if(!ptrs.size)drag=null;};
+ if(!ptrs.size)drag=null;
+ // a twist ends when either finger lifts; the one left on the glass pans from where it is, without tapping
+ else if(drag&&drag.twist!=null&&ptrs.size===1){const q=[...ptrs.values()][0];drag={x:q.x,y:q.y,f0:[cam.fx,cam.fy],yaw:cam.yaw,rot:false,mv:true};}};
+cv.addEventListener('lostpointercapture',e=>{if(ptrs.has(e.pointerId))up(e);});
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.s=Math.max(1,Math.min(4,cam.s+(e.deltaY<0?1:-1)));redraw();},{passive:false});
 window.addEventListener('resize',fit);

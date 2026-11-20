@@ -54,6 +54,8 @@
 - [slop] A voxel is 3 ft (0.9144 m), so the fade runs from about 2.2 to 3.3 voxels up. The rock below is drawn solid first; the band is blended over everything after the characters, so anyone behind it shows only as much as the wall has faded.
 - [slop] The floor a wall fades from is the nearest walkable ground to its column (the lowest, if several are as near), blended smoothly between columns, so thick walls fade through to clear too, and so bumpy faces (glass) fade evenly instead of leaving flecks. Air sealed inside a wall is not drawn.
 - [slop] The side of a taller wall column above a lower one is drawn (it would otherwise leave a slit); wall tops are not, so near walls stay hidden.
+- [slop] Where ground meets wall rock the two rounded shapes leave a groove along the foot of the wall; its ground side is not drawn, so it never shows where the near wall is hidden.
+- [slop] A new touch forgets any finger whose lift the phone lost, so a twist cannot stick on; when one finger of a twist lifts, the other pans.
 - [gospel] There is a real distance fog.
 - [gospel] Everything has a shadow under it, in the same style as the ambient occlusion.
 - [slop] Fog starts 2 rows behind the point you are looking at and reaches 75% haze 14 rows further back. Shadows are three-band soft dark ellipses on the ground.

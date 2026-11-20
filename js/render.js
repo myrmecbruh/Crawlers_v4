@@ -54,7 +54,13 @@ function vsolid(i,j,k){if(i<0||j<0||i>=W||j>=H||k>=Z)return 0;if(k<0)return G.ma
 // Only rock that faces the air of a walkable place is drawn (the rule from the first game): air over ground tiles, and air
 // hollowed inside rock (tunnels). The outer faces of walls and the tops of walls and outcrops face nothing anyone walks in,
 // so they are left out, and a near-side wall no longer hides what is behind it.
-function walkAir(i,j,k){if(i<0||j<0||i>=W||j>=H||k<0)return false;const m=G.mask[j*W+i];if(m===2)return true;return m===1&&k<G.hgt[j*W+i]&&k<Z&&AIRO&&AIRO[(k*H+j)*W+i]===1;}
+// Air you could stand in or see into: above the ground of a ground tile, dug out of it, or an open tunnel in a wall.
+function realAir(i,j,k){if(i<0||j<0||i>=W||j>=H||k<0)return false;if(k>=Z)return G.mask[j*W+i]!==0;const m=G.mask[j*W+i],v=(k*H+j)*W+i;
+ if(m===2)return !G.vox[v];return m===1&&k<G.hgt[j*W+i]&&!!AIRO&&AIRO[v]===1;}
+function walkAir(i,j,k){if(i<0||j<0||i>=W||j>=H||k<0)return false;const m=G.mask[j*W+i];
+ // A rounded edge can dip into a solid ground voxel, so a sample there still counts when that voxel faces open air. A
+ // seam deep inside the ground (where very round ash meets wall rock) does not, so it is not drawn.
+ if(m===2)return k>=Z||!G.vox[(k*H+j)*W+i]||realAir(i,j,k+1)||realAir(i+1,j,k)||realAir(i-1,j,k)||realAir(i,j+1,k)||realAir(i,j-1,k)||realAir(i,j,k-1);return m===1&&k<G.hgt[j*W+i]&&k<Z&&AIRO&&AIRO[(k*H+j)*W+i]===1;}
 // Air inside a wall counts as walkable only where it opens onto the ground (a dug tunnel). A sealed pocket stays out of
 // the mesh: drawn, its inside would float into view where the top of the wall fades.
 let AIRO=null;
@@ -155,16 +161,24 @@ function buildChunk(cx,cy){
   const gx=uy*wz-uz*wy,gy=uz*wx-ux*wz,gz=ux*wy-uy*wx,ox=vn[a*3]+vn[b*3]+vn[c*3],oy=vn[a*3+1]+vn[b*3+1]+vn[c*3+1],oz=vn[a*3+2]+vn[b*3+2]+vn[c*3+2];
   if((gx*ox+gy*oy+gz*oz)*WSIGN>0)idx.push(a,b,c);else idx.push(a,c,b);};
  const quadOut=(a,b,c,d,keep)=>{if(keep){tri(a,b,c);tri(a,c,d);}else{tri(a,c,b);tri(a,d,c);}};
- const airOK=(ix,iy,iz)=>walkAir(Math.floor((sx0+ix+.5)/RES),Math.floor((sy0+iy+.5)/RES),Math.floor((sz0+iz+.5)/RES));
+ // Where a ground voxel meets wall rock, two rounded shapes leave a groove along the foot of the wall. The wall hides it,
+ // and where the near wall is left out the groove would show, so surface inside a ground voxel close to solid wall rock is
+ // not drawn.
+ const groove=(x,y,i,j,k)=>{if(G.mask[j*W+i]!==2||!G.vox[(k*H+j)*W+i])return false;const fx=x-i,fy=y-j,wr=(a,b)=>a>=0&&b>=0&&a<W&&b<H&&G.mask[b*W+a]===1&&!!G.vox[(k*H+b)*W+a];
+  return(fx>.6&&wr(i+1,j))||(fx<.4&&wr(i-1,j))||(fy>.6&&wr(i,j+1))||(fy<.4&&wr(i,j-1));};
+ // (only the ground's side of the groove: the wall's side faces away from the near wall's viewer and closes it for a far wall)
+ const gcol=(ix,iy)=>{const i=Math.floor((sx0+ix+.5)/RES),j=Math.floor((sy0+iy+.5)/RES);return i>=0&&j>=0&&i<W&&j<H?G.mask[j*W+i]:0;};
+ const airOK=(ix,iy,iz,qx,qy)=>{const x=(sx0+ix+.5)/RES,y=(sy0+iy+.5)/RES,i=Math.floor(x),j=Math.floor(y),k=Math.floor((sz0+iz+.5)/RES);
+  return walkAir(i,j,k)&&!(qx!=null&&gcol(qx,qy)===2&&k>=0&&k<Z&&i>=0&&j>=0&&i<W&&j<H&&groove(x,y,i,j,k));};
  // A side face may also look onto the air over a lower wall: that is the step between two wall heights, and leaving it
  // out opens a slit through the wall. Tops of walls are still left out, so near walls stay hidden.
- const sideOK=(ix,iy,iz)=>{const i=Math.floor((sx0+ix+.5)/RES),j=Math.floor((sy0+iy+.5)/RES),k=Math.floor((sz0+iz+.5)/RES);
-  if(walkAir(i,j,k))return true;return i>=0&&j>=0&&i<W&&j<H&&G.mask[j*W+i]===1&&k>=G.hgt[j*W+i];};
+ const sideOK=(ix,iy,iz,qx,qy)=>{const i=Math.floor((sx0+ix+.5)/RES),j=Math.floor((sy0+iy+.5)/RES),k=Math.floor((sz0+iz+.5)/RES);
+  if(walkAir(i,j,k))return airOK(ix,iy,iz,qx,qy);return i>=0&&j>=0&&i<W&&j<H&&G.mask[j*W+i]===1&&k>=G.hgt[j*W+i];};
  for(let iz=1;iz<nz-1;iz++)for(let iy=PADS;iy<PADS+CH*RES;iy++)for(let ix=PADS;ix<PADS+CH*RES;ix++){
   const s=F[at(ix,iy,iz)]>T;
-  if(s!==(F[at(ix+1,iy,iz)]>T)&&(s?sideOK(ix+1,iy,iz):sideOK(ix,iy,iz))){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);quadOut(a,b,c,d,s);}
-  if(s!==(F[at(ix,iy+1,iz)]>T)&&(s?sideOK(ix,iy+1,iz):sideOK(ix,iy,iz))){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,!s);}
-  if(s!==(F[at(ix,iy,iz+1)]>T)&&(s?airOK(ix,iy,iz+1):airOK(ix,iy,iz))){const a=cellVert(ix-1,iy-1,iz),b=cellVert(ix,iy-1,iz),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,s);}}
+  if(s!==(F[at(ix+1,iy,iz)]>T)&&(s?sideOK(ix+1,iy,iz,ix,iy):sideOK(ix,iy,iz,ix+1,iy))){const a=cellVert(ix,iy-1,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix,iy-1,iz);quadOut(a,b,c,d,s);}
+  if(s!==(F[at(ix,iy+1,iz)]>T)&&(s?sideOK(ix,iy+1,iz,ix,iy):sideOK(ix,iy,iz,ix,iy+1))){const a=cellVert(ix-1,iy,iz-1),b=cellVert(ix,iy,iz-1),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,!s);}
+  if(s!==(F[at(ix,iy,iz+1)]>T)&&(s?airOK(ix,iy,iz+1,ix,iy):airOK(ix,iy,iz,ix,iy))){const a=cellVert(ix-1,iy-1,iz),b=cellVert(ix,iy-1,iz),c=cellVert(ix,iy,iz),d=cellVert(ix-1,iy,iz);quadOut(a,b,c,d,s);}}
  PC=null;
  return{v:new Float32Array(vd),i:new Uint32Array(idx)};
 }

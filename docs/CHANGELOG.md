@@ -2,6 +2,10 @@
 
 What changed in each published build, newest first. Play: https://myrmecbruh.github.io/Crawlers_v4/
 
+## 2026-11-20
+
+- Hide the ash groove at the foot of near walls; twist can no longer stick on mobile
+
 ## 2026-11-18
 
 - WASD camera; close slits at wall height steps; smooth fade floor between columns
