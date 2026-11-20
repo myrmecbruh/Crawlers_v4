@@ -69,13 +69,27 @@ button.mat.have{background:#24301f;border-color:#6f9a52;color:#e4f0d4}button.mat
 #bar button.wait{border-style:dashed;color:var(--ac)}
 button.press{background:#2e2c22;border-color:var(--ac)}
 @keyframes flash{0%{background:var(--ac);color:#15151c}100%{background:var(--bx)}}button.flash,a.flash{animation:flash .26s ease-out}.log div{padding:1px 0;border-bottom:1px solid #22222c;font-size:16px;overflow-wrap:anywhere}
-/* the dawn card choice: a fixed box over the map, three fixed-size cards and a fixed timer line */
-#offer{display:none;position:absolute;left:50%;top:50%;width:min(360px,calc(100% - 16px));height:248px;transform:translate(-50%,-50%);z-index:6;background:#0b0b10e8;border:1px solid var(--ac);padding:8px}
-#offer.on{display:block}#offer .h{height:20px;line-height:20px;color:var(--ac);white-space:nowrap;overflow:hidden}
-#offer button{display:block;width:100%;height:56px;margin:4px 0 0;padding:4px 8px;text-align:left;white-space:normal}
-#offer button b{display:block;height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#offer button span{display:block;height:20px;line-height:20px;color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#offer .boon b{color:var(--good)}#offer .bane b{color:var(--bad)}
+/* the dawn card choice: a fixed box over the map with three fixed card slots and a fixed timer line */
+#offer{display:none;position:absolute;left:50%;top:50%;width:min(360px,calc(100% - 16px));height:258px;transform:translate(-50%,-50%);z-index:6;background:#0b0b10e8;border:1px solid var(--ac);padding:8px}
+#offer.on{display:block}#offer .h{height:20px;line-height:20px;color:var(--ac);white-space:nowrap;overflow:hidden;text-align:center}
+#offer .cards{display:flex;gap:6px;height:192px;margin-top:6px;perspective:700px}
+#offer .card{flex:1 1 0;min-width:0;height:192px;padding:0;margin:0;background:none;border:0;pointer-events:none;text-align:center;white-space:normal}
+#offer.ready .card{pointer-events:auto}#offer.done .card{pointer-events:none}
+#offer .in{display:block;position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:cdeal .7s cubic-bezier(.2,.7,.3,1) both;animation-delay:calc(var(--i)*.1s)}
+@keyframes cdeal{0%{transform:translateY(40px) rotateY(180deg)}35%{transform:translateY(0) rotateY(180deg)}100%{transform:rotateY(0)}}
+#offer .f,#offer .b{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:2px solid #6a6458;border-radius:5px;overflow:hidden}
+#offer .f{background:linear-gradient(#2a251e,#1a1712);box-shadow:inset 0 0 0 1px #0b0b10,inset 0 0 0 3px #3a3428;padding:5px 4px}
+#offer .b{transform:rotateY(180deg);background:repeating-linear-gradient(45deg,#2a1f14 0 4px,#1e160e 4px 8px);border-color:var(--ac)}
+#offer .b::after{content:'';position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%) rotate(45deg);border:2px solid var(--ac);background:#3a2a14}
+#offer .boon .f{border-color:var(--good)}#offer .bane .f{border-color:var(--bad)}#offer .arrival .f{border-color:var(--ac)}
+#offer .cn{display:block;height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+#offer .boon .cn{color:var(--good)}#offer .bane .cn{color:var(--bad)}#offer .arrival .cn{color:var(--ac)}
+#offer .art{display:block;width:96px;max-width:100%;height:72px;margin:3px auto 4px;image-rendering:pixelated;border:1px solid #0b0b10;outline:1px solid #4a4236;object-fit:contain}
+#offer .ck{display:block;height:12px;line-height:12px;font-size:8px;color:var(--dm);text-transform:uppercase;letter-spacing:.08em}#offer .ck i{font-style:normal;color:var(--ac)}
+#offer .ct{display:block;height:50px;margin-top:3px;font-size:8px;line-height:10px;color:var(--tx);overflow:hidden;padding:0 2px}
+#offer.ready .card:hover .f{box-shadow:inset 0 0 0 1px #0b0b10,inset 0 0 0 3px var(--ac)}
+#offer .card.chosen .f{box-shadow:inset 0 0 0 1px #0b0b10,inset 0 0 0 3px var(--ac),0 0 14px var(--ac);border-color:var(--ac)}
+#offer .card.gone{opacity:.25;transition:opacity .4s}
 #offer .bar{height:8px;margin-top:10px;background:#222;border:1px solid #444}#offer .bar i{display:block;height:100%;background:var(--ac);width:100%}
 </style></head><body>
 <div id="app">

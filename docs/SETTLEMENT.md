@@ -31,6 +31,8 @@
 - [gospel] How the daily draw works is undecided; it is on the roadmap.
 - [gospel] The daily draw: at dawn the player is offered three cards and keeps one. If they do not pick within 10 seconds, one of the three is picked at random.
 - [slop] Time holds while the choice is open. The two cards not kept go back into the deck. With only one card left to deal there is no choice.
+- [gospel] The cards look like real illustrated cards, animated, with their text printed on them.
+- [slop] Each card has a pixel-art picture that moves (snow falling, a rat scurrying, a fire, a walker, a map path being drawn), its name, kind, uses as pips and its rule. The frame is coloured by kind (boon green, bane red, arrival gold). They are dealt face down and turn over; they take taps only once dealt, and the 10 seconds start then. The kept card glows and the others dim.
 - [gospel] Deck shaping: cards have a small use count shown as pips (banes expire, boons wear out), and a shrine station destroys a card for a token cost and a roll.
 - [slop] One deck. The day's draw is laid face up on the interface side and applies until the next dawn.
 - [slop] The starting deck is mostly banes and blanks; expedition cards dilute it with boons.

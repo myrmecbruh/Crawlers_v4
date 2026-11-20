@@ -98,16 +98,61 @@ function tabCards(){
  return h;}
 function tabLog(){return'<div class="box log">'+G.log.slice().reverse().map(l=>'<div'+(/FAIL|DOWN|dies|wounded/.test(l)?' class="k-bane"':'')+'>'+esc(l)+'</div>').join('')+'</div>';}
 // ---- The dawn card choice. Ten seconds to pick one of three; then one is picked at random. [gospel]
-const OFFER_S=10;let offerAt=0,offerKey='';
-function offerUI(){const o=$('offer');if(!o)return;
- if(!G.offer){if(offerKey){offerKey='';o.className='';o.innerHTML='';}return;}
- const key=G.t+':'+G.offer.map(c=>c.k).join(',');
- if(key!==offerKey){offerKey=key;offerAt=performance.now();
-  o.innerHTML='<div class="h">Dawn: keep one card</div>'+G.offer.map((c,i)=>{const C=CARD[c.k];
-   return '<button class="'+C.kind+'" data-a="pick" data-v="'+i+'"><b>'+esc(C.n)+' · '+C.kind+(C.pips?' · '+'●'.repeat(c.pips||C.pips):'')+'</b><span>'+esc(C.t)+'</span></button>';}).join('')+'<div class="bar"><i id="obar"></i></div>';
-  o.className='on';}
- const left=Math.max(0,1-(performance.now()-offerAt)/(OFFER_S*1000)),b=$('obar');if(b)b.style.width=(left*100).toFixed(1)+'%';
- if(left<=0){pickCard(-1);offerUI();render();redraw();}}
+// Each card is drawn as an illustrated card: a framed picture in pixel art that moves, the name, kind, uses and rule.
+// They are dealt face down and turn over; they take taps only once dealt, and never move while they can be tapped.
+const OFFER_S=10,DEAL_MS=900;let offerAt=0,offerKey='',offerShown=null,offerClose=0;
+function cardArt(k,g,t){
+ const R=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),w,h);},hs=n=>{const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v);},f=Math.floor(t*4);
+ g.clearRect(0,0,48,36);
+ if(k==='still'){R(0,0,48,9,'#33363f');R(0,9,48,8,'#3d404a');R(0,17,48,9,'#474a54');R(0,26,48,10,'#26241f');R(0,26,48,1,'#34312a');
+  R(30,11,2,15,'#17130f');R(26,14,4,1,'#17130f');R(32,9,1,4,'#17130f');R(27,12,1,2,'#17130f');R(33,15,4,1,'#17130f');R(36,13,1,2,'#17130f');
+  for(let i=0;i<4;i++){const x=((t*2.5+i*17)%70)-18;R(x,20+i*3,20,1,'#62656f');R(x+5,19+i*3,9,1,'#585b65');}
+  for(let i=0;i<4;i++)R((hs(i)*48+t*(1+i*.3))%48,(hs(i+9)*20+Math.sin(t+i)*2+2),1,1,'#8a8d96');}
+ else if(k==='cold'){R(0,0,48,27,'#121827');R(0,14,48,13,'#18203a');R(36,4,5,5,'#cfd8e8');R(37,5,2,2,'#e8eef8');
+  R(0,27,48,9,'#c3ccd9');R(0,27,48,1,'#e8eef8');R(0,33,48,3,'#9aa6b8');
+  R(7,19,15,8,'#3a2e24');for(let i=0;i<5;i++)R(6+i,18-i,17-2*i,1,i===0?'#e8eef8':'#5a463a');R(9,15,11,1,'#e8eef8');R(11,13,7,1,'#e8eef8');
+  R(12,21,4,3,(f%5)?'#f0a040':'#d08030');R(19,22,2,5,'#1c1612');
+  for(let i=0;i<26;i++){const x=(hs(i)*48+Math.sin(t*1.5+i)*1.5+48)%48,y=(hs(i+50)*36+t*(5+hs(i+9)*6))%36;R(x,y,1,1,'#eef3fa');}}
+ else if(k==='vermin'){R(0,0,48,26,'#241e1a');for(let y=3;y<26;y+=5){R(0,y,48,1,'#1a1512');for(let x=(y%10?0:6);x<48;x+=12)R(x,y-4,1,4,'#1a1512');}
+  R(0,26,48,10,'#16120e');R(3,17,11,10,'#7a6646');R(5,15,7,2,'#7a6646');R(7,14,3,1,'#5a4a30');R(4,19,2,6,'#8c7652');
+  for(const [x,y] of[[16,24],[19,23],[22,24],[18,25],[21,25]])R(x,y,3,2,'#9a6a54');R(17,23,2,1,'#5a7a3a');R(21,22,2,1,'#5a7a3a');
+  for(let i=0;i<3;i++)R(18+Math.sin(t*7+i*2)*3+i*2,18+Math.cos(t*9+i)*2,1,1,'#1e1e1e');
+  const p=(Math.sin(t*1.1)+1)/2,x=26+p*14,face=Math.cos(t*1.1)>0?1:-1;R(x,27,7,3,'#6a5548');R(x+1,26,5,1,'#6a5548');
+  R(face>0?x+7:x-3,26,3,3,'#6a5548');R(face>0?x+9:x-3,27,1,1,(f%7)?'#f04040':'#6a5548');R(face>0?x-4:x+7,29+((f%2)?0:-1),4,1,'#9a8070');R(x+1,30,1,1,'#3a2c24');R(x+5,30,1,1,'#3a2c24');}
+ else if(k==='seam'){R(0,0,48,36,'#34343c');for(let i=0;i<14;i++)R(hs(i)*44,hs(i+3)*34,3+hs(i+7)*6,2,'#2a2a31');for(let i=0;i<10;i++)R(hs(i+20)*46,hs(i+30)*34,2,1,'#44444e');
+  for(let i=0;i<26;i++){const x=3+i*1.5,y=30-i*.95+Math.sin(i*.9)*1.5;R(x,y,2,2,'#9a6030');R(x,y,1,1,'#e0a050');}
+  for(let n=0;n<3;n++){const i=(n*9+f*2)%26,x=4+i*1.5,y=30-i*.95+Math.sin(i*.9)*1.5;R(x,y-1,1,3,'#fff4c0');R(x-1,y,3,1,'#fff4c0');}
+  for(let i=0;i<10;i++)R(41-i*.7,27-i*1.6,2,2,'#6a4a2a');R(31,9,12,2,'#9aa0a8');R(30,10,2,2,'#7a8088');R(43,8,2,2,'#7a8088');R(32,9,10,1,'#c8ccd2');}
+ else if(k==='dry'){R(0,0,48,36,'#16120e');R(0,28,48,8,'#221a12');const gl=.5+.5*Math.sin(t*6);R(22,27,22,1,gl>.5?'#5a2a10':'#4a2410');
+  for(const [x,y] of[[3,24],[3,20],[8,22],[13,24],[13,20],[8,18]]){R(x,y,10,4,'#5a3e22');R(x,y,10,1,'#6e4e2c');R(x,y,2,4,'#a07850');R(x,y+1,1,2,'#7a5a3a');}
+  R(28,26,12,2,'#3a2414');R(29,25,10,1,'#5a3a1e');
+  for(let n=0;n<9;n++){const h=3+Math.round((Math.sin(t*9+n*1.7)+1)*3+(n>2&&n<6?4:0));R(29+n,25-h,1,h,n%2?'#f0a030':'#e06020');if(h>4)R(29+n,25-h+2,1,Math.max(1,h-5),'#ffe080');}
+  for(let i=0;i<5;i++){const a=(t*.8+hs(i))%1;R(33+Math.sin(t*3+i*2)*3,20-a*18,1,1,a<.6?'#f08030':'#8a3a18');}}
+ else if(k==='wander'){R(0,0,48,8,'#2a2232');R(0,8,48,8,'#3a2c3a');R(0,16,48,6,'#5a3a3a');R(0,22,48,14,'#221e1a');
+  for(let y=22;y<36;y++){const w=2+(y-22)*2.2;R(24-w/2,y,w,1,'#4a4038');}R(0,9,7,27,'#2a2a30');R(41,9,7,27,'#2a2a30');R(0,8,8,2,'#3a3a42');R(40,8,8,2,'#3a3a42');
+  const b=f%2;R(21,13,1,13,'#5a4630');R(22,15+b,5,8,'#3a3a2a');R(23,13+b,3,3,'#2a2a20');R(24,15+b,1,1,'#d0a080');
+  R(22+(b?0:1),23,1,3,'#2a2a20');R(25-(b?0:1),23,1,3,'#2a2a20');const fl=(f%3)?'#f0c040':'#e0a030';R(27,19+b,2,2,fl);R(26,18+b,1,1,'#5a4a28');}
+ else if(k==='chart'){R(0,0,48,36,'#a08c64');R(2,2,44,32,'#c8b48a');for(let i=0;i<9;i++)R(2+hs(i)*42,2+hs(i+5)*30,2,1,'#b8a47a');
+  for(let i=0;i<14;i++)R(4+i*1.2,26+Math.sin(i)*2,1,1,'#5a4a30');for(let i=0;i<10;i++)R(30+Math.sin(i*1.3)*3,10+i*1.6,1,1,'#5a4a30');
+  for(let i=0;i<22;i++){const x=6+i*1.45,y=28-i*.9-Math.sin(i*.4)*3;if(((i-t*6)%4+4)%4<2)R(x,y,1,1,'#7a2a1a');}
+  if(f%4<3){R(37,6,1,1,'#a02020');R(39,6,1,1,'#a02020');R(38,7,1,1,'#a02020');R(37,8,1,1,'#a02020');R(39,8,1,1,'#a02020');}
+  R(8,5,1,5,'#5a4a30');R(6,7,5,1,'#5a4a30');R(8,4,1,1,'#a02020');}
+ else{R(0,0,48,36,'#2a2a30');R(20,14,8,8,'#f0c040');}
+}
+function offerHTML(){return '<div class="h">Dawn: keep one card</div><div class="cards">'+G.offer.map((c,i)=>{const C=CARD[c.k],u=c.pips||C.pips||0;
+ return '<button class="card '+C.kind+'" style="--i:'+i+'" data-a="pick" data-v="'+i+'"><span class="in"><span class="f"><span class="cn">'+esc(C.n)+'</span>'+
+  '<canvas class="art" width="48" height="36" data-k="'+c.k+'"></canvas><span class="ck">'+C.kind+(u?' <i>'+'●'.repeat(u)+'</i>':'')+'</span><span class="ct">'+esc(C.t)+'</span></span><span class="b"></span></span></button>';}).join('')+
+ '</div><div class="bar"><i id="obar"></i></div>';}
+// keep card i (or one at random); the kept card glows and the others dim for a moment before the box closes
+function chooseCard(i){if(!G.offer)return;const was=G.offer;pickCard(i);const n=was.indexOf(G.card),o=$('offer');
+ if(o){o.classList.add('done');o.querySelectorAll('.card').forEach((b,j)=>b.classList.add(j===n?'chosen':'gone'));}offerClose=performance.now()+800;}
+function offerUI(){const o=$('offer');if(!o)return;const now=performance.now();
+ if(!G.offer){if(offerKey&&now>=offerClose){offerKey='';o.className='';o.innerHTML='';}}
+ else{const key=G.t+':'+G.offer.map(c=>c.k).join(',');
+  if(key!==offerKey){offerKey=key;offerAt=now+DEAL_MS;o.innerHTML=offerHTML();o.className='on';setTimeout(()=>{if(offerKey===key)o.classList.add('ready');},DEAL_MS);}
+  const left=Math.max(0,Math.min(1,1-(now-offerAt)/(OFFER_S*1000))),b=$('obar');if(b)b.style.width=(left*100).toFixed(1)+'%';
+  if(left<=0){chooseCard(-1);render();redraw();}}
+ if(offerKey)o.querySelectorAll('canvas.art').forEach(c=>cardArt(c.dataset.k,c.getContext('2d'),now/1000));}
 setInterval(offerUI,100);
 function render(){offerUI();
  $('thr').innerHTML='Threat '+Array.from({length:THREAT_MAX},(_,i)=>'<span class="t'+(i<Math.floor(G.threat||0)?' f':'')+'"></span>').join('')+' '+(G.raid?'<b style="color:#e04040">RAID</b>':Math.floor(G.threat||0)+'/'+THREAT_MAX)+' · renown '+(G.renown||0);
@@ -182,7 +227,7 @@ function act(a,v){
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}
  else if(a==='recall')recall();
- else if(a==='pick'){pickCard(+v);offerUI();}
+ else if(a==='pick'){chooseCard(+v);offerUI();}
  else if(a==='bill'){const p=v.split(':'),b=bench();G.sites.push({id:G.nid++,kind:'bill',it:p[0],m:+p[1],x:b.x,y:b.y,spec:{m:+p[1]},need:ITEM[p[0]].cost,have:0});}
  else if(a==='unsite'){const s=G.sites.find(s=>s.id===+v);if(s){for(let i=0;i<s.have;i++)addTok(s.x,s.y,{m:s.m});G.sites=G.sites.filter(q=>q!==s);}}
  else if(a==='new'){if(askNew){askNew=false;newGame((Math.random()*1e9)|0);save();goHomeView();}else askNew=true;}

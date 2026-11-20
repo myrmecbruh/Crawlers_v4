@@ -4,6 +4,7 @@ What changed in each published build, newest first. Play: https://myrmecbruh.git
 
 ## 2026-11-20
 
+- Dawn cards drawn as animated illustrated cards, dealt face down and turned over
 - Dawn deals three cards to choose from; a random one after 10 seconds
 - Hide the ash groove at the foot of near walls; twist can no longer stick on mobile
 
