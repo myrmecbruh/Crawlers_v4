@@ -38,6 +38,13 @@
 - [gospel] Tiles are reclaimed by placing lit braziers or wards: tokens that burn down.
 - [gospel] The fog creeps back into the settlement unless held off: a standing upkeep pressure.
 - [gospel] Tokens left in the fog gain a "blighted" keyword, with risks and uses.
+- [slop] The blight border is inside the plot: about a quarter of its ground, on the side farthest from both camp and gate, starts under the fog (never within 10 steps of camp or on the gate passage). A few finds lie hidden in it (scrap, dead trees).
+- [slop] Nothing in the fog can be seen or ordered, except a Brazier. A Brazier order takes 1 wood, burns 6 days and clears the fog within 3 tiles.
+- [slop] Each dawn the fog spreads into each unheld ground tile beside it with one chance in four; ground within 3 of a lit brazier or 4 of the hearth is held. Stockpile, field, dig and building orders on ground it takes are lost.
+- [slop] Every 10 ticks in the fog a colonist rolls Willpower; on a failure they gain a step of stress and have one chance in four to fall sick for 3 days (sick: one die fewer on every roll).
+- [slop] Blighted tokens: blighted food sickens whoever eats it (2 days, and stress); blighted wood burns half again as long on the hearth.
+- [slop] Fog within 8 tiles of the hearth (or camp) adds half a threat token each dawn.
+- [slop] Look: a thick grey-green haze in drifting layers over the ground it holds, with a soft edge.
 
 ## Calendar
 - [gospel] Four seasons of 6 days: a 24-day year, about 4 minutes a day at normal speed. Winter is the temperature and food test.

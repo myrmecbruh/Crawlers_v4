@@ -335,7 +335,7 @@ vec4 pr(vec3 w,out float a,out float N){vec3 d=w-uF;float rx=d.x*uK.x-d.y*uK.y,r
 const LOOK=`uniform vec3 uFog;uniform float uNight;uniform float uHH;
 // distance fog: haze starts 2 rows behind the point you look at and reaches 75% 14 rows further back
 vec3 look(vec3 c,float a){float far=-a*uHH/8.,fa=clamp((far-2.)/12.*.75,0.,.75);c=mix(c,uFog,fa);return mix(c,vec3(8.,10.,44.)/255.,uNight);}`;
-let TP,SP,DP,revTex,floorTex=null;
+let TP,SP,DP,HP,revTex,floorTex=null,blightTex=null,BLB=null;
 function glInit(){
  TP=mkProg(`#version 300 es
 precision highp float;layout(location=0)in vec3 aP;layout(location=1)in float aM;layout(location=2)in float aA;
@@ -344,7 +344,7 @@ out vec3 vW;flat out int vM;out float vA;out float vR;
 void main(){float a,N;vec4 s=pr(aP,a,N);gl_Position=vec4(s.x*2./uVP.x,-s.y*2./uVP.y,-N/256.,1.);vW=aP;vM=int(aM+.5);vA=aA;vR=a;}`,
  `#version 300 es
 precision highp float;in vec3 vW;flat in int vM;in float vA;in float vR;
-uniform vec4 uK;uniform float uK2;uniform vec3 uF;uniform highp sampler2D uFloor;uniform int uPass;uniform vec3 uPal[24];uniform highp sampler2D uRev;
+uniform vec4 uK;uniform float uK2;uniform vec3 uF;uniform highp sampler2D uFloor;uniform highp sampler2D uBlight;uniform float uTime;uniform int uPass;uniform vec3 uPal[24];uniform highp sampler2D uRev;
 ${LOOK}
 out vec4 o;
 float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -371,6 +371,10 @@ void main(){
  else if(vM==3){s*=1.08;if(h3(q+7.)<.008&&r.z>.5)s=1.6;}
  float lv=clamp(1.+.13*(vW.z-uF.z),.5,1.55); // height tint: 13% lighter per voxel above the height you look at, darker below
  vec3 col=uPal[vM]*s*lv*sp*vA;
+ // blight fog: a thick sickly haze over the ground it holds, its edge soft, slow wisps moving through it
+ {float bl=texture(uBlight,vW.xy/vec2(textureSize(uBlight,0))).r;if(bl>0.){
+  float w=.5+.5*sin(vW.x*1.3+vW.y*.9+uTime*.6)*sin(vW.y*1.7-vW.x*.4-uTime*.45+vW.z*.8);
+  col=mix(col,vec3(.24,.27,.19)+vec3(.08,.09,.06)*w,clamp(bl*1.25,0.,1.)*(.8+.15*w));}}
  o=vec4(look(col,vR),1.-fa_);}`);
  SP=mkProg(`#version 300 es
 precision highp float;layout(location=0)in vec3 aF;layout(location=1)in vec2 aO;layout(location=2)in vec2 aU;layout(location=3)in float aH;
@@ -405,6 +409,21 @@ void main(){float e=min(min(vL.x,1.-vL.x),min(vL.y,1.-vL.y));if(vC.a>0.&&e>.07)d
  for(let i=0;i<NCX*NCY;i++)CHUNKS.push({vao:gl.createVertexArray(),vb:gl.createBuffer(),ib:gl.createBuffer(),n:0});
  for(const A of[ATL,DYN]){A.tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,A.tex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);
   for(const p of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);}
+ // the blight haze: translucent drifting layers over fogged ground, thinning out at the fog's soft edge
+ HP=mkProg(`#version 300 es
+precision highp float;layout(location=0)in vec3 aP;layout(location=1)in float aL;
+${PROJ}
+out vec3 vW;out float vL;out float vR;
+void main(){float a,N;vec4 s=pr(aP,a,N);gl_Position=vec4(s.x*2./uVP.x,-s.y*2./uVP.y,-(N+.02)/256.,1.);vW=aP;vL=aL;vR=a;}`,
+ `#version 300 es
+precision highp float;in vec3 vW;in float vL;in float vR;uniform highp sampler2D uBlight;uniform float uTime;
+${LOOK}
+out vec4 o;
+void main(){float bl=texture(uBlight,vW.xy/vec2(textureSize(uBlight,0))).r;if(bl<.02)discard;
+ float w=.5+.5*sin(vW.x*1.1+vW.y*.7+uTime*.5+vL*2.1)*sin(vW.y*1.5-vW.x*.5-uTime*.4+vL*1.3);
+ float a=bl*bl*(.3+.35*w)*(1.-vL*.2);o=vec4(look(vec3(.40,.44,.32)*(.85+.3*w),vR),a);}`);
+ HB.vao=gl.createVertexArray();HB.vb=gl.createBuffer();gl.bindVertexArray(HB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,HB.vb);
+ for(const [l,n,o] of[[0,3,0],[1,1,12]]){gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,16,o);}
  SB.vao=gl.createVertexArray();SB.vb=gl.createBuffer();DB.vao=gl.createVertexArray();DB.vb=gl.createBuffer();
  gl.bindVertexArray(SB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,SB.vb);
  for(const [l,n,o] of[[0,3,0],[1,2,12],[2,2,20],[3,1,28]]){gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,32,o);}
@@ -421,6 +440,7 @@ function rebuildDirty(){if(DIRTY.size||!AIRO)openAir();for(const k of DIRTY){if(
 
 // ---- Sprite atlases. Features and token stacks change rarely, so their pictures are kept (ATL); characters, rats, dice
 // and markers are drawn fresh each frame (DYN).
+const HB={n:0,sig:-1};
 const ATL={w:1024,h:1024,map:new Map(),sx:0,sy:0,sh:0,dirty:true},DYN={w:512,h:512,sx:0,sy:0,sh:0,dirty:true},SB={},DB={};
 for(const A of[ATL,DYN]){A.cv=document.createElement('canvas');A.cv.width=A.w;A.cv.height=A.h;A.g=A.cv.getContext('2d');}
 function cell(A,w,h){if(A.sx+w>A.w){A.sx=0;A.sy+=A.sh;A.sh=0;}if(A.sy+h>A.h)return null;const r={x:A.sx,y:A.sy};A.sx+=w+1;A.sh=Math.max(A.sh,h+1);return r;}
@@ -447,7 +467,7 @@ function fit(){redraw();}
 const FSH={crop:8,trap:7,tree:5,moss:6,tuber:5,reed:6,scrap:9,vein:9,glass:7,cache:8,nest:10,cage:8,hearth:10,bench:11,brazier:5};
 function ratSpr(o,ex,ey){const f=facing(o).f;shadow(ex,ey,7);rc(ex-5,ey-5,9,5,'#6a5548');rc(f>0?ex+3:ex-7,ey-7,4,4,'#6a5548');rc(f>0?ex+5:ex-6,ey-6,1,1,'#f04040');rc(f>0?ex-8:ex+5,ey-2,3,1,'#9a8070');if(wounds(o))rc(ex-2,ey-4,2,2,'#d02020');}
 const tkey=t=>t.card?'c'+t.card:t.corpse?'x':(t.it||'')+t.m+(t.flawed?'f':'');
-const seenAt=(x,y)=>x<PW||G.rev[I(x,y)];
+const seenAt=(x,y)=>x<PW?!(G.fog&&G.fog[I(x,y)]):!!G.rev[I(x,y)]; // what is in the blight fog is not seen
 let PAL=null;
 const SHIFT=[0,0],WSIGN=1;let FLR=null;
 // a voxel whose middle is past half of the wall fade is mostly see-through, so taps pass through it to what lies behind
@@ -487,13 +507,20 @@ function draw_(){
      const o=best.get(u);if(o===undefined){best.set(u,FLR[v]);nq.push(u);}else if(FLR[v]<o)best.set(u,FLR[v]);}}
    for(const u of nq){seen[u]=1;FLR[u]=best.get(u);}q=nq;}}
  gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,FLR);
+ // the blight, one value per tile, blended between tiles so its edge is soft
+ if(!blightTex){blightTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,blightTex);for(const p of[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.LINEAR);for(const p of[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);BLB=new Uint8Array(W*H);}
+ let sig=0;for(let i=0;i<W*H;i++){BLB[i]=G.fog&&G.fog[i]?255:0;if(BLB[i])sig=(sig*31+i)%1000000007;}
+ if(sig!==HB.sig){HB.sig=sig;const v=[];
+  for(let y=0;y<H;y++)for(let x=0;x<PW;x++){const i=I(x,y);if(G.mask[i]!==2)continue;let any=false;for(let b=-1;b<=1&&!any;b++)for(let a=-1;a<=1;a++)if(BLB[I(Math.max(0,Math.min(PW-1,x+a)),Math.max(0,Math.min(H-1,y+b)))]){any=true;break;}
+   if(!any)continue;const h=G.hgt[i];for(let L=0;L<3;L++){const z=h+.3+L*.6;v.push(x,y,z,L,x+1,y,z,L,x+1,y+1,z,L,x,y,z,L,x+1,y+1,z,L,x,y+1,z,L);}}
+  HB.n=v.length/4;gl.bindBuffer(gl.ARRAY_BUFFER,HB.vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(v),gl.STATIC_DRAW);}gl.bindTexture(gl.TEXTURE_2D,blightTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,W,H,0,gl.RED,gl.UNSIGNED_BYTE,BLB);
  const K=camK(),t=tod(),night=t>=180?.42:t>=160?(t-160)/20*.42:t<10?(10-t)/10*.42:0;
  const common=P=>{gl.useProgram(P.p);gl.uniform3f(P.u.uF,cam.fx,cam.fy,cam.fz);gl.uniform4f(P.u.uK,K.cs,K.sn,K.hh,K.k1);gl.uniform1f(P.u.uK2,K.k2);
   gl.uniform2f(P.u.uVP,vw,vh);gl.uniform2f(P.u.uSh,SHIFT[0],SHIFT[1]);gl.uniform3f(P.u.uFog,38/255,42/255,54/255);gl.uniform1f(P.u.uNight,night);gl.uniform1f(P.u.uHH,K.hh);};
  gl.viewport(0,0,vw,vh);gl.clearColor(11/255,11/255,16/255,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
  // terrain
- common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
+ common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,blightTex);gl.uniform1i(TP.u.uBlight,2);gl.uniform1f(TP.u.uTime,performance.now()/1000%1000);gl.activeTexture(gl.TEXTURE0);
  gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);gl.uniform1i(TP.u.uPass,0);for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
  gl.disable(gl.CULL_FACE);
  // gather sprites and markers
@@ -543,8 +570,10 @@ function draw_(){
   gl.bindVertexArray(SB.vao);gl.bindBuffer(gl.ARRAY_BUFFER,SB.vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STREAM_DRAW);gl.drawArrays(gl.TRIANGLES,0,arr.length/8);};
  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);sprites(ATL,shd,0,.3,2);gl.depthMask(true);gl.disable(gl.BLEND);
  sprites(ATL,st,0,.3);sprites(DYN,dy,0,.3);
+ if(HB.n){common(HP);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,blightTex);gl.uniform1i(HP.u.uBlight,2);gl.uniform1f(HP.u.uTime,performance.now()/1000%1000);gl.activeTexture(gl.TEXTURE0);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);gl.bindVertexArray(HB.vao);gl.drawArrays(gl.TRIANGLES,0,HB.n);gl.depthMask(true);gl.disable(gl.BLEND);}
  // the fading band of high walls goes last, so whatever stands behind it is seen through it, not drawn over it
- common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);
+ common(TP);gl.uniform3fv(TP.u.uPal,PAL);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,floorTex);gl.uniform1i(TP.u.uFloor,1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,revTex);gl.uniform1i(TP.u.uRev,0);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,blightTex);gl.uniform1i(TP.u.uBlight,2);gl.uniform1f(TP.u.uTime,performance.now()/1000%1000);gl.activeTexture(gl.TEXTURE0);
  gl.uniform1i(TP.u.uPass,1);gl.enable(gl.CULL_FACE);gl.frontFace(FRONT);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
  for(const C of CHUNKS)if(C.n){gl.bindVertexArray(C.vao);gl.drawElements(gl.TRIANGLES,C.n,gl.UNSIGNED_INT,0);}
  gl.depthMask(true);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
@@ -567,7 +596,7 @@ function pick(px,py){
  const b=gx/16;let pi=null,pj=0,pk=0;for(let dz=Z+2-cam.fz;dz>-1-cam.fz;dz-=1/32){const a=(gy+dz*16)/K.hh,rx=(a+b)/2,ry=(a-b)/2;
   const x=cam.fx+rx*K.cs+ry*K.sn,y=cam.fy-rx*K.sn+ry*K.cs,z=cam.fz+dz,i=Math.floor(x),j=Math.floor(y),k=Math.floor(z);
   if(pi!==null&&i===pi&&j===pj&&k===pk)continue;const qi=pi,qj=pj,qk=pk;pi=i;pj=j;pk=k;
-  if(i<0||j<0||i>=W||j>=H||k<0||k>=Z||qi===null)continue;if(!seenAt(i,j)||faded(i,j,k)||!G.vox[(k*H+j)*W+i])continue;
+  if(i<0||j<0||i>=W||j>=H||k<0||k>=Z||qi===null)continue;if((i>=PW&&!G.rev[I(i,j)])||faded(i,j,k)||!G.vox[(k*H+j)*W+i])continue;
   if((qi!==i&&walkAir(qi,j,k))||(qj!==j&&walkAir(i,qj,k))||(qk!==k&&walkAir(i,j,qk)))return{x:i,y:j,z:k};}
  return null;
 }

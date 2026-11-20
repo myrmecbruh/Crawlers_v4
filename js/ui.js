@@ -3,10 +3,10 @@ const $=id=>document.getElementById(id),panel=$('panel');
 let tool='look',tab='colony',info=null,psel={},pgoal='ore',timer=null,askNew=false;
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const pips=(n,m,ch)=>'<span class="pp">'+(ch||'●').repeat(n)+'</span><span class="po">'+'○'.repeat(Math.max(0,m-n))+'</span>';
-const itn=t=>t?(t.card?'card':t.corpse?'body of '+t.corpse:(t.flawed?'flawed ':'')+M[t.m].n+(t.it?' '+ITEM[t.it].n.toLowerCase():'')):'–';
+const itn=t=>t?(t.card?'card':t.corpse?'body of '+t.corpse:(t.blight?'blighted ':'')+(t.flawed?'flawed ':'')+M[t.m].n+(t.it?' '+ITEM[t.it].n.toLowerCase():'')):'–';
 function jobName(c){if(c.down)return c.home?'down, mending':'DOWN';if(c.asleep)return'asleep';const j=c.job;if(!j)return'idle';
  const n={wait:'idle',fetch:{stock:'hauling',site:'supplying',fuel:'fuelling',cook:'cooking',wear:'gearing up',arm:'arming',keep:'looting'}[j.to],gather:'gathering',dig:'digging',make:'making',eat:'eating',sleep:'to bed',rescue:'rescuing',fight:'FIGHTING',home:'heading home',drop:'hauling'}[j.t]||j.t;
- return(c.party?'⚑ ':'')+n;}
+ return(c.party?'⚑ ':'')+(c.sick?'sick, ':'')+n;}
 function setSpeed(s){G.speed=s;clearInterval(timer);timer=null;if(s>0)timer=setInterval(step,1000/s);render();}
 let animT=0;
 // Walking is drawn between ticks at about 12 frames a second, and only while someone is moving at 1x or 4x. [slop]
@@ -51,8 +51,8 @@ function tabColony(){
  h+='<div class="dim small">Every load and every update starts a new world.'+(window.VERSION?' Version '+window.VERSION+'.':'')+'</div>';
  return h;
 }
-const TOOLS=[['look','Look'],['dig','Dig'],['place','Place'],['stock','Stock'],['hearth','Hearth'],['bench','Bench'],['trap','Trap'],['field','Field'],['cancel','Cancel']];
-const HINT={field:'Field: tap ground tiles to add or remove a field. Someone sows a tuber there; the crop ripens in a day and a half and keeps growing back, except in winter.',trap:'Trap: tap a tile. Needs 1 metal token. A raider stepping on it may be badly hurt; it is spent either way.',look:'Tap a tile or a person to inspect.',dig:'Tap any rock to mark that voxel for digging: the top of a tile, or the side of a wall or outcrop to tunnel into it. Tap again to unmark.',place:'Place stone: tap a tile to have a stone token set on it as a voxel.',stock:'Stockpile: tap tiles to add or remove stockpile ground.',hearth:'Hearth: tap a tile. Needs 2 stone tokens; burns wood for warmth and cooks.',bench:'Workbench: tap a tile. Needs 2 wood tokens; makes tools and gear.',cancel:'Tap a marked tile to clear the order.'};
+const TOOLS=[['look','Look'],['dig','Dig'],['place','Place'],['stock','Stock'],['hearth','Hearth'],['bench','Bench'],['trap','Trap'],['field','Field'],['cancel','Cancel'],['brazier','Brazier']];
+const HINT={brazier:'Brazier: tap a tile at the edge of the blight (or in it). Needs 1 wood. It burns for 6 days and drives the fog back 3 tiles; the fog cannot creep near it or near the hearth.',field:'Field: tap ground tiles to add or remove a field. Someone sows a tuber there; the crop ripens in a day and a half and keeps growing back, except in winter.',trap:'Trap: tap a tile. Needs 1 metal token. A raider stepping on it may be badly hurt; it is spent either way.',look:'Tap a tile or a person to inspect.',dig:'Tap any rock to mark that voxel for digging: the top of a tile, or the side of a wall or outcrop to tunnel into it. Tap again to unmark.',place:'Place stone: tap a tile to have a stone token set on it as a voxel.',stock:'Stockpile: tap tiles to add or remove stockpile ground.',hearth:'Hearth: tap a tile. Needs 2 stone tokens; burns wood for warmth and cooks.',bench:'Workbench: tap a tile. Needs 2 wood tokens; makes tools and gear.',cancel:'Tap a marked tile to clear the order.'};
 // every material an item could be made of, whether or not there is any: the buttons stay put
 const MATS=k=>{const r=[];for(let m=1;m<M.length;m++)if(ITEM[k].fam.includes(M[m].f)&&m!==18&&m!==19&&m!==20)r.push(m);return r;};
 function tabOrders(){
@@ -172,6 +172,7 @@ function render(){offerUI();
 const BUILT={hearth:1,bench:1,brazier:1,crop:1};
 function blockAt(x,y){const f=featAt(x,y);if(!f)return null;if(!BUILT[f.k]&&!(f.left>0)){G.feats=G.feats.filter(q=>q!==f);return null;}return f;}
 function tap(p){
+ if(fogAt(p.x,p.y)&&tool!=='brazier'&&tool!=='cancel'&&!(tool==='look'&&G.cols.some(c=>c.x===p.x&&c.y===p.y))){info={x:p.x,y:p.y,t:tool==='look'?'Blight fog. Nothing can be seen in it.':'The blight hides this ground. Light a brazier at its edge first.'};render();return;}
  const k=K(p.x,p.y),inner=p.x<PW&&G.hgt[I(p.x,p.y)]>0&&!(p.x===47&&p.y===24)&&(G.mask[I(p.x,p.y)]===2||tool==='dig'||tool==='cancel');
  if(tool==='look'){const c=G.cols.find(c=>c.x===p.x&&c.y===p.y);if(c){G.sel=c.id;tab='colony';}
   const f=featAt(p.x,p.y),t=[].concat(...Object.keys(G.tok).filter(q=>q.startsWith(k+',')).map(q=>G.tok[q])),fog=p.x>=PW&&!G.rev[I(p.x,p.y)];
@@ -181,8 +182,10 @@ function tap(p){
  else if(tool==='stock'){if(G.stock[k])delete G.stock[k];else G.stock[k]=1;}
  else if(tool==='field'){G.fields=G.fields||{};if(G.fields[k]){delete G.fields[k];const f=featAt(p.x,p.y);if(f&&f.k==='crop')G.feats=G.feats.filter(q=>q!==f);}else{const f=blockAt(p.x,p.y);if(f)info={x:p.x,y:p.y,t:'Cannot farm here: '+FEAT[f.k].n+' is in the way.'};else G.fields[k]=1;}}
  else if(tool==='cancel'){for(const dk in G.digs)if(dk.startsWith(k+','))delete G.digs[dk];G.sites=G.sites.filter(s=>!(s.x===p.x&&s.y===p.y&&s.kind!=='bill'));}
+ else if(tool==='brazier'&&fogAt(p.x,p.y)&&featAt(p.x,p.y)&&BUILT[featAt(p.x,p.y).k]==null&&featAt(p.x,p.y).left>0)info={x:p.x,y:p.y,t:'Something in the fog is in the way. Try the next tile.'};
  else if(!G.sites.some(s=>s.x===p.x&&s.y===p.y)&&!blockAt(p.x,p.y)){
-  if(tool==='place')G.sites.push({id:G.nid++,kind:'voxel',x:p.x,y:p.y,spec:{fam:'stone'},need:1,have:0,m:0});
+  if(tool==='brazier')G.sites.push({id:G.nid++,kind:'brazier',x:p.x,y:p.y,spec:{fam:'wood'},need:1,have:0,m:0});
+  else if(tool==='place')G.sites.push({id:G.nid++,kind:'voxel',x:p.x,y:p.y,spec:{fam:'stone'},need:1,have:0,m:0});
   else if(tool==='trap')G.sites.push({id:G.nid++,kind:'trap',x:p.x,y:p.y,spec:{fam:'metal'},need:1,have:0,m:0});
   else if(!G.feats.some(f=>f.k===tool)&&!G.sites.some(s=>s.kind===tool))G.sites.push({id:G.nid++,kind:tool,x:p.x,y:p.y,spec:{fam:tool==='hearth'?'stone':'wood'},need:2,have:0,m:0});
   else info={x:p.x,y:p.y,t:'Only one '+tool+' in this prototype.'};}

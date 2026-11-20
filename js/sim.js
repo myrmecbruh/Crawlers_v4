@@ -81,7 +81,7 @@ function endJob(c){if(c.job)for(const k of c.job.res||[])if(G.res[k]===c.id)dele
 // nearest reachable token tile matching spec. o.zone: look beyond the gate; o.loose: not in stockpile
 function findTok(c,spec,o){o=o||{};const f=flood(c);let best=null,bd=1e9;
  for(const k in G.tok){const a=G.tok[k];if(!a.length||rsv('t'+k))continue;const p=tparse(k),x=p[0],y=p[1],z=p[2];
-  if(o.zone?(x<PW||!G.rev[I(x,y)]):x>=PW)continue;if(o.loose&&G.stock[K(x,y)]&&z===G.hgt[I(x,y)])continue;/* already on the stockpile */if(o.ok&&!o.ok(x,y))continue;
+  if(o.zone?(x<PW||!G.rev[I(x,y)]):(x>=PW||fogAt(x,y)))continue;if(o.loose&&G.stock[K(x,y)]&&z===G.hgt[I(x,y)])continue;/* already on the stockpile */if(o.ok&&!o.ok(x,y))continue;
   if(!a.some(t=>match(t,spec)))continue;const d=f.dist[N(x,y,z)];if(d>=0&&d<bd){bd=d;best={x,y,z,k};}}
  return best;}
 function takeTok(x,y,spec,z){const k=TK(x,y,z==null?G.hgt[I(x,y)]:z),a=G.tok[k];if(!a)return null;const i=a.findIndex(t=>match(t,spec));if(i<0)return null;
@@ -109,7 +109,7 @@ function jCook(c){const h=hearth();if(!h||h.fuel<20||rsv('cook')||counts().meal>
 function jSupply(c){for(const s of G.sites){if(s.have>=s.need||rsv('s'+s.id))continue;if(fetchJob(c,s.spec,'site',{sid:s.id,res:['s'+s.id]}))return true;}return false;}
 function jMake(c){for(const s of G.sites){if(s.have<s.need||rsv('s'+s.id))continue;if(setJob(c,{t:'make',sid:s.id,res:['s'+s.id]},s.x,s.y,true))return true;}return false;}
 // a voxel to dig is reached from a side neighbour standing within a voxel of its height
-function jDig(c){const f=flood(c);let b=null,bd=1e9;for(const k in G.digs){if(rsv('d'+k))continue;const p=tparse(k),d=reachD(f,p[0],p[1],true,p[2]);if(d>=0&&d<bd){bd=d;b={x:p[0],y:p[1],z:p[2],k};}}
+function jDig(c){const f=flood(c);let b=null,bd=1e9;for(const k in G.digs){if(rsv('d'+k))continue;const p=tparse(k);if(fogAt(p[0],p[1]))continue;const d=reachD(f,p[0],p[1],true,p[2]);if(d>=0&&d<bd){bd=d;b={x:p[0],y:p[1],z:p[2],k};}}
  return b?setJob(c,{t:'dig',x:b.x,y:b.y,z:b.z,res:['d'+b.k]},b.x,b.y,true,b.z):false;}
 function jEquip(c){for(let s=0;s<6;s++)if(!c.worn[s]&&fetchJob(c,{worn:s},'wear'))return true;
  if(!c.hands[0]&&c.carry.length===0&&fetchJob(c,{tool:1},'wear'))return true;return false;}
@@ -117,7 +117,7 @@ function jHaul(c){if(!stockSpot(c))return false;return fetchJob(c,{any:1},'stock
 function jGather(c){const n=counts(),want=[];
  if(n.food<8)want.push('crop','moss','tuber');if((n.fam.wood||0)<8)want.push('tree');if((n.fam.metal||0)<6)want.push('scrap');if((n.fam.fiber||0)<4)want.push('reed');
  if(!want.length)return false;const f=flood(c);let b=null,bd=1e9;
- for(const ft of G.feats){if(ft.x>=PW||ft.left<=0||!want.includes(ft.k)||rsv('f'+ft.id))continue;
+ for(const ft of G.feats){if(ft.x>=PW||ft.left<=0||!want.includes(ft.k)||rsv('f'+ft.id)||fogAt(ft.x,ft.y))continue;
   const d0=reachD(f,ft.x,ft.y,true,ft.z),d=d0+want.indexOf(ft.k)*3;if(d0>=0&&d<bd){bd=d;b=ft;}}
  return b?setJob(c,{t:'gather',f:b.id,res:['f'+b.id]},b.x,b.y,true,b.z):false;}
 function jDrop(c){if(!c.carry.length)return false;const s=stockSpot(c);if(!s)return false;return setJob(c,{t:'drop'},s.x,s.y,false);}
@@ -212,6 +212,7 @@ function arrive(c){
  case'wait':if(--j.n<=0)endJob(c);break;
  case'eat':{const t=takeTok(c.x,c.y,{m:20},c.z)||takeTok(c.x,c.y,{food:1},c.z);
   if(t){c.need.hun=Math.max(0,c.need.hun-M[t.m].eat);if(t.m===20)c.need.str=Math.max(0,c.need.str-1);
+   if(t.blight){c.sick=Math.max(c.sick||0,2);c.need.str=Math.min(6,c.need.str+1);log(c.name+' is sickened by blighted '+M[t.m].n+'.');}
    else if(M[t.m].raw&&!roll(c,2,null,1,0,'eats raw '+M[t.m].n).ok){c.need.str=Math.min(6,c.need.str+1);log(c.name+' is sickened by raw food.');}}
   endJob(c);break;}
  case'sleep':c.asleep=true;if(c.need.rest<=0||(!night()&&c.need.rest<=1)){if(nearFire(c))c.need.str=Math.max(0,c.need.str-1);endJob(c);}break;
@@ -253,11 +254,13 @@ function arrive(c){
   endJob(c);if(!r.ok)c.cd=8;break;}
  case'make':{const s=G.sites.find(q=>q.id===j.sid);if(!s){endJob(c);break;}
   if(!j.w){j.w=1;c.cd=8;break;}
-  const sk=s.kind==='bill'?SKILL[M[s.m].f]:s.kind==='bench'?'Wood':s.kind==='trap'?'Metal':'Stone',tr=s.kind==='bill'||s.kind==='bench'||s.kind==='trap'?1:0;
+  const sk=s.kind==='bill'?SKILL[M[s.m].f]:s.kind==='bench'||s.kind==='brazier'?'Wood':s.kind==='trap'?'Metal':'Stone',tr=s.kind==='bill'||s.kind==='bench'||s.kind==='trap'||s.kind==='brazier'?1:0;
   const d=s.kind==='bill'&&M[s.m].f==='metal'?2:1;
   const r=roll(c,tr,sk,d,0,s.kind==='bill'?'makes '+ITEM[s.it].n:'builds');
   G.sites=G.sites.filter(q=>q!==s);
-  if(s.kind==='trap'){G.feats.push({id:G.nid++,k:'trap',x:s.x,y:s.y,m:s.m,left:1,grow:0});log('A trap is set.');pop(s.x,s.y,G.hgt[I(s.x,s.y)],'trap set');}
+  if(s.kind==='brazier'){G.feats.push({id:G.nid++,k:'brazier',x:s.x,y:s.y,life:BRAZIER_DAYS,left:1,grow:0});const n=clearFog(s.x,s.y,BRAZIER_R);recomputeKeep();
+   log('A brazier is lit.'+(n?' The blight draws back from '+n+' tile'+(n>1?'s':'')+'.':''));pop(s.x,s.y,G.hgt[I(s.x,s.y)],'blight drawn back','#f0a030');}
+  else if(s.kind==='trap'){G.feats.push({id:G.nid++,k:'trap',x:s.x,y:s.y,m:s.m,left:1,grow:0});log('A trap is set.');pop(s.x,s.y,G.hgt[I(s.x,s.y)],'trap set');}
   else if(s.kind==='hearth'||s.kind==='bench'){G.feats.push({id:G.nid++,k:s.kind,x:s.x,y:s.y,m:s.m,fuel:0,left:1,grow:0});log('A '+FEAT[s.kind].n+' stands.');}
   else if(s.kind==='voxel'){const h=topZ(s.x,s.y);if(h<Z-2){G.vox[VI(s.x,s.y,h)]=s.m;G.hgt[I(s.x,s.y)]=h+1;touch(s.x,s.y);moveTop(s.x,s.y,h,h+1);}}
   else{const it={it:s.it,m:s.m};if(!r.ok){it.flawed=1;log('The '+ITEM[s.it].n+' comes out flawed.');}addTok(s.x,s.y,it);pop(s.x,s.y,G.hgt[I(s.x,s.y)],'+'+M[s.m].n+' '+ITEM[s.it].n.toLowerCase(),'#f0c040');emit('make');}
@@ -278,7 +281,7 @@ function arrive(c){
   if(j.to==='stock'){for(const t of c.carry)addTok(c.x,c.y,t,1,c.z);c.carry=[];}
   else if(j.to==='site'){const s=G.sites.find(q=>q.id===j.sid),t=c.carry.pop();if(s&&t){s.have++;if(s.kind!=='bill')s.m=t.m;}else if(t)addTok(c.x,c.y,t,0,c.z);}
   else if(j.to==='sow'){const t=c.carry.pop();if(G.fields&&G.fields[K(c.x,c.y)]&&!featAt(c.x,c.y)){G.feats.push({id:G.nid++,k:'crop',x:c.x,y:c.y,left:0,grow:DAY*1.5|0});log(c.name+' sows a field.');pop(c.x,c.y,c.z,'sown','#8fbf6a');}else if(t)addTok(c.x,c.y,t,0,c.z);}
-  else if(j.to==='fuel'){c.carry.pop();hearth().fuel+=G.card&&G.card.k==='dry'?180:120;}
+  else if(j.to==='fuel'){const w=c.carry.pop();hearth().fuel+=(G.card&&G.card.k==='dry'?180:120)*(w&&w.blight?1.5:1);} /* blighted wood burns longer */
   else if(j.to==='cook'){if(!j.w){j.w=1;c.cd=6;break;}const t=c.carry.pop();
    const r=roll(c,1,SKILL[M[t.m].f],1,c.hands[0]&&c.hands[0].it==='knife'?1:0,'cooks '+M[t.m].n);addTok(c.x,c.y,{m:20},1,c.z);if(!r.ok)c.cd=8;}
   endJob(c);break;}
@@ -316,7 +319,7 @@ function die(c){
 }
 // ---- per tick
 function tickCol(c){
- const t=G.t,n=c.need;
+ const t=G.t,n=c.need;blightTick(c);
  if(t%60===0)n.hun=Math.min(6,n.hun+1);
  if(c.asleep||c.down){if(t%8===0)n.rest=Math.max(0,n.rest-1);}else if(t%40===0)n.rest=Math.min(6,n.rest+1);
  if(t%20===0){const cold=(night()?1:0)+(season()===3?1:0)+(season()===2&&night()?1:0)+(G.card&&G.card.k==='cold'?1:0)-(nearFire(c)?3:0)-(c.worn[1]?1:0)-(c.worn[5]&&c.worn[5].it==='cloak'?1:0);
@@ -357,7 +360,7 @@ function tickCrit(e){
 function dawn(){
  G.seam=false;emit('dawn');spoil();threatAtDawn();if(G.gateBroken&&!G.raid){G.gateBroken=false;log('The gate is mended and barred again.');}
  const res=[['hun',0,'hunger'],['temp',1,'cold'],['rest',4,'weariness'],['str',5,'dread']];
- for(const c of G.cols){c.pen=0;if(c.down)continue;
+ for(const c of G.cols){c.pen=0;if(c.sick){c.pen=1;if(--c.sick<=0){c.sick=0;log(c.name+' is well again.');}}if(c.down)continue;
   const P=c.pers||[];if(P.includes('pious')&&nearFire(c))c.need.str=Math.max(0,c.need.str-1);
   if(near(c,3).some(o=>(o.pers||[]).includes('cheerful')&&bond(c,o)>=1))c.need.str=Math.max(0,c.need.str-1);
   for(const r of res)if(c.need[r[0]]>=6&&!roll(c,r[1],null,1,0,'resists '+r[2]).ok){if(r[0]==='str'){breakdown(c);continue;}c.pen=1;c.need.str=Math.min(6,c.need.str+(P.includes('grim')?.5:1));}
@@ -366,6 +369,7 @@ function dawn(){
  let lost=false;for(const f of G.feats)if(f.k==='brazier'&&--f.life<=0)lost=true;
  if(lost){G.feats=G.feats.filter(f=>!(f.k==='brazier'&&f.life<=0));recomputeKeep();log('A brazier burns out. The fog creeps back over that ground.');
   if(!G.zone.on)forgetZone();}
+ creep();
  if(G.card){const d=G.card;if(CARD[d.k].pips){d.pips--;if(d.pips<=0)log(CARD[d.k].n+' is spent and leaves the deck.');else G.discard.push(d);}else G.discard.push(d);}
  if(!G.deck.length){G.deck=G.discard;G.discard=[];}
  // Three cards are dealt and the player keeps one; the others go back into the deck. [gospel] Time holds while the
@@ -517,3 +521,26 @@ function spoil(){if(season()===3)return;for(const k in G.tok){const p=tparse(k),
  if(!a.length)delete G.tok[k];}}
 function jFarm(c){for(const k in G.fields||{}){const p=k.split(','),x=+p[0],y=+p[1];if(featAt(x,y)||rsv('fl'+k))continue;
   if(fetchJob(c,{m:15},'sow',{fx:x,fy:y,res:['fl'+k]}))return true;}return false;}
+
+// ---- The blight. [gospel] Time in the fog risks stress and sickness; braziers reclaim ground and burn down; the fog creeps
+// back into the settlement unless held off; tokens left in it turn blighted. The numbers here are [slop].
+const BRAZIER_DAYS=6,BRAZIER_R=3;
+const fogAt=(x,y)=>x>=0&&y>=0&&x<PW&&y<H&&!!G.fog&&G.fog[I(x,y)]===1;
+// ground the fog cannot take: near a lit brazier, or near the hearth
+function heldAt(x,y){for(const f of G.feats){if(f.k==='brazier'&&f.x<PW&&Math.hypot(f.x-x,f.y-y)<=BRAZIER_R+.5)return true;if(f.k==='hearth'&&Math.hypot(f.x-x,f.y-y)<=4.5)return true;}return false;}
+function clearFog(x,y,r){if(!G.fog)return 0;let n=0;for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const tx=x+dx,ty=y+dy;if(tx<0||ty<0||tx>=PW||ty>=H||dx*dx+dy*dy>r*r+r)continue;
+ const i=I(tx,ty);if(G.fog[i]){G.fog[i]=0;n++;}}return n;}
+// at dawn the fog spreads into unheld ground beside it (each such tile one chance in four), and orders there are lost
+function creep(){if(!G.fog)return;const add=[];
+ for(let y=1;y<H-1;y++)for(let x=1;x<PW-1;x++){const i=I(x,y);if(G.fog[i]||G.mask[i]!==2||heldAt(x,y))continue;
+  if((G.fog[i-1]||G.fog[i+1]||G.fog[i-W]||G.fog[i+W])&&R()<.25)add.push(i);}
+ for(const i of add){G.fog[i]=1;const x=i%W,y=(i/W)|0,k=K(x,y);delete G.stock[k];if(G.fields)delete G.fields[k];
+  G.sites=G.sites.filter(q=>!(q.x===x&&q.y===y&&q.kind!=='bill'&&q.kind!=='brazier'));for(const dk in G.digs)if(dk.startsWith(k+','))delete G.digs[dk];}
+ if(add.length)log('The blight creeps in over '+add.length+' tile'+(add.length>1?'s':'')+'.');
+ for(const k in G.tok){const p=tparse(k);if(fogAt(p[0],p[1]))for(const t of G.tok[k])if(!t.it&&!t.card&&!t.corpse)t.blight=1;}
+ const h=hearth()||{x:24,y:24};let near=false;for(let dy=-8;dy<=8&&!near;dy++)for(let dx=-8;dx<=8;dx++)if(fogAt(h.x+dx,h.y+dy)){near=true;break;}
+ if(near)addThreat(.5,'the blight');}
+// every 10 ticks in the fog: a Willpower roll, or stress, and one chance in four of falling sick for 3 days
+function blightTick(c){if(c.down||G.t%10||!fogAt(c.x,c.y))return;
+ if(!roll(c,5,null,1,0,'resists the blight').ok){c.need.str=Math.min(6,c.need.str+1);
+  if(!c.sick&&R()<.25){c.sick=3;log(c.name+' falls sick in the blight.');pop(c.x,c.y,c.z,'sick','#a0c060');}}}

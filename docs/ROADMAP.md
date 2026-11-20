@@ -7,7 +7,7 @@
 ## Later
 - Done 2026-11-20: the daily card draw (see SETTLEMENT.md).
 - [gospel] Raids with defence mechanics.
-- [slop] Blight fog border and reclaiming tiles.
+- Done 2026-11-20: the blight fog border and reclaiming tiles with braziers (see WORLD.md).
 - [slop] Depths border.
 - [slop] Token-moving devices.
 - [slop] Shrine and deck shaping.

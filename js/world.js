@@ -102,7 +102,7 @@ function addTok(x,y,t,pref,z){
 function newGame(seed){
  G={v:1,seed,rs:seed,t:60,speed:1,vox:new Uint8Array(W*H*Z),hgt:new Uint8Array(W*H),rev:new Uint8Array(W*H),keep:new Uint8Array(W*H),mask:new Uint8Array(W*H),
   feats:[],tok:{},stock:{},digs:{},sites:[],cols:[],crit:[],exp:null,zone:{n:0,on:false},gateOpen:false,gate:{x:47,y:24},
-  deck:[],discard:[],card:null,offer:null,log:[],fx:[],nid:1,sel:null,res:{},seam:false,over:false,
+  deck:[],discard:[],card:null,offer:null,fog:new Uint8Array(W*H),log:[],fx:[],nid:1,sel:null,res:{},seam:false,over:false,
   threat:0,raids:0,bonds:{},fields:{},raid:null,gateMax:6,gateBroken:false,gdone:[],renown:0,pops:[],stats:{ore:0,maps:0,nests:0,raids:0,kills:0}};
  markAll();shapeRegion(0,PW-1,24,24,21,seed+31);
  for(let y=0;y<H;y++)for(let x=0;x<PW;x++){
@@ -120,6 +120,7 @@ function newGame(seed){
  const a=[24,24];
  scatter('tree',34,2,45,2,45,a);scatter('moss',14,2,45,2,45,a);scatter('tuber',9,2,45,2,45,a);
  scatter('reed',8,2,45,2,45,a);scatter('scrap',5,2,45,2,45,a);
+ blightInit();
  mkCol(22,24);mkCol(24,22);mkCol(26,24);
  for(let i=0;i<3;i++)addTok(24,24,{m:6},1);
  for(let i=0;i<4;i++)addTok(24,24,{m:4},1);
@@ -129,6 +130,18 @@ function newGame(seed){
  G.sel=G.cols[0].id;
  log('Squatters in the ruin: three people, a pick, and a wall with one gate.');
 }
+// The blight border: the ground of the plot farthest from both camp and gate starts under the fog, about a quarter of it
+// (less where the plot is small), grown out from the farthest tile. A few finds lie hidden in it: scrap and dead trees. [slop]
+function blightInit(){
+ const grow=(q,d,ok,stop)=>{for(let h=0;h<q.length&&q.length<stop;h++){const i=q[h];for(const o of[1,-1,W,-W]){const j=i+o;if(j<0||j>=W*H||j%W>=PW||d[j]>=0||G.mask[j]!==2||!ok(j))continue;d[j]=d[i]+1;q.push(j);}}};
+ const from=(x,y)=>{const d=new Int32Array(W*H).fill(-1),q=[I(x,y)];d[q[0]]=0;grow(q,d,()=>true,1e9);return[d,q.length];};
+ const [dc,ground]=from(24,24),[dg]=from(46,24);
+ // the source is the ground farthest from both the camp and the gate; the fog keeps 10 steps from camp and out of the gate passage
+ const ok=j=>dc[j]>=10&&!(j%W>=38&&Math.abs(((j/W)|0)-24)<=3);let src=-1,bs=-1;
+ for(let j=0;j<W*H;j++)if(dc[j]>=0&&dg[j]>=0&&ok(j)&&dc[j]+dg[j]>bs){bs=dc[j]+dg[j];src=j;}if(src<0)return;
+ const want=Math.round(ground*.25),far=[src],d=new Int32Array(W*H).fill(-1);d[src]=0;grow(far,d,ok,want);
+ const fog=far.slice(0,want);for(const i of fog)G.fog[i]=1;
+ let n=0;for(let g=0;g<400&&n<7;g++){const i=fog[ri(fog.length)],x=i%W,y=(i/W)|0;if(featAt(x,y))continue;const k=n<3?'scrap':'tree';G.feats.push({id:G.nid++,k,x,y,left:FEAT[k].uses,grow:0});n++;}}
 const mkRat=(x,y)=>G.crit.push({id:G.nid++,k:'Husk-rat',x,y,z:G.hgt[I(x,y)],tr:[1,2,1,1,1,1],sk:{Bite:1},wd:[0,0,0,0,0,0],cd:0});
 function genZone(){
  const z=G.zone;z.n++;z.on=true;const s=G.seed+z.n*977,gh=flr(47,24);
@@ -158,12 +171,13 @@ function recomputeKeep(){G.keep.fill(0);for(const f of G.feats)if(f.k==='brazier
 function log(s){G.log.push('D'+(day()+1)+' '+s);if(G.log.length>80)G.log.shift();}
 function b64(a){let s='';for(let i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s);}
 function unb64(s){const b=atob(s),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
-function save(){try{const o=Object.assign({},G,{vox:b64(G.vox),hgt:b64(G.hgt),rev:b64(G.rev),keep:b64(G.keep),mask:b64(G.mask),fx:[]});
+function save(){try{const o=Object.assign({},G,{vox:b64(G.vox),hgt:b64(G.hgt),rev:b64(G.rev),keep:b64(G.keep),mask:b64(G.mask),fog:b64(G.fog),fx:[]});
  localStorage.setItem('crawlers4',JSON.stringify(o,(k,v)=>k[0]==='_'?undefined:v));}catch(e){}}
 function load(){try{const s=localStorage.getItem('crawlers4');if(!s)return false;const o=JSON.parse(s);if(o.v!==1)return false;
  o.vox=unb64(o.vox);o.hgt=unb64(o.hgt);o.rev=unb64(o.rev);o.keep=o.keep?unb64(o.keep):new Uint8Array(W*H);
  if(o.mask)o.mask=unb64(o.mask);else{o.mask=new Uint8Array(W*H);for(let y=0;y<H;y++)for(let x=0;x<W;x++)o.mask[I(x,y)]=x<PW&&(x===0||y===0||y===H-1||(x===PW-1&&y!==24))?1:2;}
  if(o.gateZ==null)o.gateZ=o.hgt[I(47,24)];
+ o.fog=o.fog?unb64(o.fog):new Uint8Array(W*H);
  // saves from before 3D movement: give everyone a height and let them choose new jobs
  for(const c of o.cols.concat(o.crit))if(c.z==null){c.z=o.hgt[I(c.x,c.y)];c.job=null;c.path=[];o.res={};}
  // saves from before tokens and digs had heights
