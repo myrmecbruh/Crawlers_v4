@@ -69,13 +69,21 @@ button.mat.have{background:#24301f;border-color:#6f9a52;color:#e4f0d4}button.mat
 #bar button.wait{border-style:dashed;color:var(--ac)}
 button.press{background:#2e2c22;border-color:var(--ac)}
 @keyframes flash{0%{background:var(--ac);color:#15151c}100%{background:var(--bx)}}button.flash,a.flash{animation:flash .26s ease-out}.log div{padding:1px 0;border-bottom:1px solid #22222c;font-size:16px;overflow-wrap:anywhere}
+/* the dawn card choice: a fixed box over the map, three fixed-size cards and a fixed timer line */
+#offer{display:none;position:absolute;left:50%;top:50%;width:min(360px,calc(100% - 16px));height:248px;transform:translate(-50%,-50%);z-index:6;background:#0b0b10e8;border:1px solid var(--ac);padding:8px}
+#offer.on{display:block}#offer .h{height:20px;line-height:20px;color:var(--ac);white-space:nowrap;overflow:hidden}
+#offer button{display:block;width:100%;height:56px;margin:4px 0 0;padding:4px 8px;text-align:left;white-space:normal}
+#offer button b{display:block;height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#offer button span{display:block;height:20px;line-height:20px;color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#offer .boon b{color:var(--good)}#offer .bane b{color:var(--bad)}
+#offer .bar{height:8px;margin-top:10px;background:#222;border:1px solid #444}#offer .bar i{display:block;height:100%;background:var(--ac);width:100%}
 </style></head><body>
 <div id="app">
  <div id="view"><canvas id="cv"></canvas>
   <div id="top"><div id="bar">
    <span id="spd"><button data-a="speed" data-v="0">❚❚</button><button data-a="speed" data-v="1">1×</button><button data-a="speed" data-v="4">4×</button><button data-a="speed" data-v="16">16×</button></span>
    <span><button data-a="zoom" data-v="-1" title="Zoom out">−</button><button data-a="zoom" data-v="1" title="Zoom in">+</button><button data-a="turn" data-v="-1" title="Quarter turn left (Q); or drag with two fingers, the right button or shift">⟲</button><button data-a="turn" data-v="1" title="Quarter turn right (E)">⟳</button><button id="tilt" data-a="tilt" title="Raised view (R)">⤒</button><button data-a="home" title="Back to camp">⌂</button><button id="snd" data-a="sound" title="Sound and music on or off">♪</button></span></div><div id="date"><span id="dtxt"></span><span id="fps"></span><span id="ver"></span></div><div id="thr"></div></div>
-  <div id="banner" class="ban"></div>
+  <div id="banner" class="ban"></div><div id="offer"></div>
  </div>
  <div id="ui">
   <div id="tabs"><button data-a="tab" data-v="colony">Colony</button><button data-a="tab" data-v="orders">Orders</button><button data-a="tab" data-v="party">Party</button><button data-a="tab" data-v="cards">Cards</button><button data-a="tab" data-v="log">Log</button></div>

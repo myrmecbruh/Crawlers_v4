@@ -368,14 +368,25 @@ function dawn(){
   if(!G.zone.on)forgetZone();}
  if(G.card){const d=G.card;if(CARD[d.k].pips){d.pips--;if(d.pips<=0)log(CARD[d.k].n+' is spent and leaves the deck.');else G.discard.push(d);}else G.discard.push(d);}
  if(!G.deck.length){G.deck=G.discard;G.discard=[];}
- G.card=G.deck.length?G.deck.splice(ri(G.deck.length),1)[0]:null;
- if(G.card){const k=G.card.k;log('Dawn, '+SEASON[season()]+' day '+(day()%6+1)+'. Card: '+CARD[k].n+'. '+CARD[k].t);
-  if(k==='vermin'){const t=findAnyFood();if(t)log('Vermin spoil a '+M[t.m].n+'.');}
-  if(k==='wander'&&G.cols.length<6){const c=mkCol(46,24);log(c.name+' comes in from the road and stays.');}}
+ // Three cards are dealt and the player keeps one; the others go back into the deck. [gospel] Time holds while the
+ // choice is open; the screen picks one at random after 10 seconds. With one card or none there is nothing to choose.
+ G.card=null;G.offer=[];while(G.offer.length<3&&G.deck.length)G.offer.push(G.deck.splice(ri(G.deck.length),1)[0]);
+ if(G.offer.length<=1){const o=G.offer;G.offer=null;if(o.length){G.card=o[0];applyCard(false);}}
+ else{log('Dawn, '+SEASON[season()]+' day '+(day()%6+1)+'. Choose a card.');emit('offer',{});}
+}
+// keep card i of the three on offer (i < 0: one at random, when the player did not choose in time)
+function pickCard(i){if(!G.offer)return;const rnd=!(i>=0&&i<G.offer.length);if(rnd)i=ri(G.offer.length);
+ G.card=G.offer[i];for(let n=0;n<G.offer.length;n++)if(n!==i)G.deck.push(G.offer[n]);G.offer=null;applyCard(rnd);}
+function applyCard(rnd){const k=G.card.k;
+ log('Dawn, '+SEASON[season()]+' day '+(day()%6+1)+'. Card'+(rnd?' (drawn at random)':'')+': '+CARD[k].n+'. '+CARD[k].t);
+ if(k==='vermin'){const t=findAnyFood();if(t)log('Vermin spoil a '+M[t.m].n+'.');}
+ if(k==='wander'&&G.cols.length<6){const c=mkCol(46,24);log(c.name+' comes in from the road and stays.');}
 }
 function findAnyFood(){for(const k in G.tok){const p=tparse(k);if(p[0]>=PW)continue;const t=takeTok(p[0],p[1],{food:1},p[2]);if(t)return t;}return null;}
 function tick(){
  if(G.over)return;
+ // while a card is on offer, time holds (with no screen, as in tests, one is taken at random)
+ if(G.offer){if(typeof document==='undefined')pickCard(-1);else return;}
  G.fx=G.fx.filter(f=>--f.ttl>0);if(G.pops)G.pops=G.pops.filter(p=>--p.ttl>0);
  G.t++;G._cnt=null;
  if(G.t%DAY===0)dawn();

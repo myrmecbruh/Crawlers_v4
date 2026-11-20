@@ -97,7 +97,19 @@ function tabCards(){
  h+=box('Cards wear out: each draw of a card with a lasting count uses one ◆, and at none it leaves the deck. Caches beyond the gate hold new cards; a mapped zone brings home a Chart.','62px','clip dim');
  return h;}
 function tabLog(){return'<div class="box log">'+G.log.slice().reverse().map(l=>'<div'+(/FAIL|DOWN|dies|wounded/.test(l)?' class="k-bane"':'')+'>'+esc(l)+'</div>').join('')+'</div>';}
-function render(){
+// ---- The dawn card choice. Ten seconds to pick one of three; then one is picked at random. [gospel]
+const OFFER_S=10;let offerAt=0,offerKey='';
+function offerUI(){const o=$('offer');if(!o)return;
+ if(!G.offer){if(offerKey){offerKey='';o.className='';o.innerHTML='';}return;}
+ const key=G.t+':'+G.offer.map(c=>c.k).join(',');
+ if(key!==offerKey){offerKey=key;offerAt=performance.now();
+  o.innerHTML='<div class="h">Dawn: keep one card</div>'+G.offer.map((c,i)=>{const C=CARD[c.k];
+   return '<button class="'+C.kind+'" data-a="pick" data-v="'+i+'"><b>'+esc(C.n)+' · '+C.kind+(C.pips?' · '+'●'.repeat(c.pips||C.pips):'')+'</b><span>'+esc(C.t)+'</span></button>';}).join('')+'<div class="bar"><i id="obar"></i></div>';
+  o.className='on';}
+ const left=Math.max(0,1-(performance.now()-offerAt)/(OFFER_S*1000)),b=$('obar');if(b)b.style.width=(left*100).toFixed(1)+'%';
+ if(left<=0){pickCard(-1);offerUI();render();redraw();}}
+setInterval(offerUI,100);
+function render(){offerUI();
  $('thr').innerHTML='Threat '+Array.from({length:THREAT_MAX},(_,i)=>'<span class="t'+(i<Math.floor(G.threat||0)?' f':'')+'"></span>').join('')+' '+(G.raid?'<b style="color:#e04040">RAID</b>':Math.floor(G.threat||0)+'/'+THREAT_MAX)+' · renown '+(G.renown||0);
  $('snd').classList.toggle('on',SND.on&&!!SND.ctx&&SND.ctx.state==='running');$('snd').classList.toggle('wait',SND.on&&!(SND.ctx&&SND.ctx.state==='running'));
  $('dtxt').textContent=SEASON[season()]+' '+(day()%6+1)+', year '+(Math.floor(day()/24)+1)+' · '+(night()?'night':tod()<60?'morning':tod()<120?'midday':'evening');
@@ -170,6 +182,7 @@ function act(a,v){
  else if(a==='psel')psel[v]=!psel[v];else if(a==='pgoal')pgoal=v;
  else if(a==='send'){const ids=G.cols.filter(c=>psel[c.id]&&!c.down).map(c=>c.id);if(ids.length){sendParty(ids,pgoal);psel={};}}
  else if(a==='recall')recall();
+ else if(a==='pick'){pickCard(+v);offerUI();}
  else if(a==='bill'){const p=v.split(':'),b=bench();G.sites.push({id:G.nid++,kind:'bill',it:p[0],m:+p[1],x:b.x,y:b.y,spec:{m:+p[1]},need:ITEM[p[0]].cost,have:0});}
  else if(a==='unsite'){const s=G.sites.find(s=>s.id===+v);if(s){for(let i=0;i<s.have;i++)addTok(s.x,s.y,{m:s.m});G.sites=G.sites.filter(q=>q!==s);}}
  else if(a==='new'){if(askNew){askNew=false;newGame((Math.random()*1e9)|0);save();goHomeView();}else askNew=true;}

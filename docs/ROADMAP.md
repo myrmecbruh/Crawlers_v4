@@ -5,7 +5,7 @@
 - [slop] Contents: plot generation, iso voxel drawing, 3 colonists with needs, tokens, digging and placing voxels, 2 stations, dice rolls with skill marks, one gate, one goal ("bring ore"), recall bell, wounds and downed, autosave.
 
 ## Later
-- [gospel] Decide how the daily card draw works.
+- Done 2026-11-20: the daily card draw (see SETTLEMENT.md).
 - [gospel] Raids with defence mechanics.
 - [slop] Blight fog border and reclaiming tiles.
 - [slop] Depths border.
